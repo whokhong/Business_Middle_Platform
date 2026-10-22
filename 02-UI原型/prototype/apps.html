@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>应用中心 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .search-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .search-row .input { max-width: 360px; }
+  .domain-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .domain-chip {
+    padding: 4px 12px; border-radius: 16px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--bmp-border); background: var(--bmp-bg-page); color: var(--bmp-text-secondary);
+  }
+  .domain-chip.active { background: var(--bmp-color-primary-light); border-color: var(--bmp-color-primary); color: var(--bmp-color-primary); font-weight: 600; }
+  .group-title { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin: 20px 0 12px; display: flex; align-items: center; gap: 8px; }
+  .group-title .n { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); font-weight: 400; }
+  .app-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .app-card {
+    background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1);
+    padding: 18px 12px; text-align: center; cursor: pointer; transition: all .15s; border: 1px solid transparent;
+  }
+  .app-card:hover { box-shadow: var(--bmp-shadow-2); border-color: var(--bmp-color-primary-light); transform: translateY(-2px); }
+  .app-card .ic { width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; }
+  .app-card .nm { font-size: 13px; color: var(--bmp-text-title); font-weight: 600; }
+  .app-card .ds { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); margin-top: 2px; }
+  .app-card .tag-wf { display: inline-block; margin-top: 4px; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--bmp-color-info-light); color: var(--bmp-text-secondary); }
+  .recent-strip { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 16px; display: flex; gap: 10px; align-items: center; overflow-x: auto; }
+  .recent-strip .r-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; background: var(--bmp-bg-page); cursor: pointer; white-space: nowrap; font-size: 13px; }
+  .recent-strip .r-item:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<main class="portal-main">
+  <div id="stateHost"></div>
+  <h1 style="font:var(--bmp-font-h2);color:var(--bmp-text-title);margin-bottom:16px">应用中心</h1>
+  <div class="search-row">
+    <input class="input" id="kw" placeholder="搜索应用名称 / defKey…（全局搜索 V1.5 上线）">
+  </div>
+  <div class="domain-chips" id="domainChips"></div>
+
+  <div class="group-title" style="margin-top:0">最近使用 <span class="n">按频次自动排序 · 含流程应用</span></div>
+  <div class="recent-strip" id="recent"></div>
+
+  <div id="groups"></div>
+</main>
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("apps");
+
+let activeDomain = "";
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+
+function catalogApps() {
+  return MOCK.getPortalCatalogApps ? MOCK.getPortalCatalogApps() : MOCK.apps;
+}
+
+function groupKey(app) {
+  if (app.kind === "workflow") return MOCK.bizDomainLabel(app.bizDomain) || app.group || "流程应用";
+  return app.group || "业务系统";
+}
+
+function appDesc(app) {
+  if (app.kind === "workflow") return "站内发起 · " + (app.defKey || "");
+  return "SSO 免登直达";
+}
+
+function openPortalAppByName(name) {
+  if (MOCK.openPortalApp) MOCK.openPortalApp(name);
+  else msg("info", "打开「" + name + "」");
+}
+
+function renderDomainChips() {
+  const apps = catalogApps();
+  const codes = new Set();
+  apps.forEach(a => {
+    if (a.kind === "workflow" && a.bizDomain) codes.add(a.bizDomain);
+  });
+  (MOCK.bizDomains || []).forEach(d => {
+    if (apps.some(a => a.bizDomain === d.code)) codes.add(d.code);
+  });
+  const chips = ['<div class="domain-chip' + (activeDomain === "" ? " active" : "") + '" data-dom="" onclick="setDomain(\'\')">全部</div>'];
+  Array.from(codes).forEach(code => {
+    const label = MOCK.bizDomainLabel(code);
+    chips.push('<div class="domain-chip' + (activeDomain === code ? " active" : "") + '" data-dom="' + esc(code) + '" onclick="setDomain(\'' + esc(code) + '\')">' + esc(label) + '</div>');
+  });
+  document.getElementById("domainChips").innerHTML = chips.join("");
+}
+
+function setDomain(code) {
+  activeDomain = code;
+  renderDomainChips();
+  render(document.getElementById("kw").value.trim());
+}
+
+function render(kw = "") {
+  let apps = catalogApps().filter(a => {
+    if (activeDomain && a.bizDomain !== activeDomain) return false;
+    if (!kw) return true;
+    const k = kw.toLowerCase();
+    return a.name.toLowerCase().includes(k) || (a.defKey && String(a.defKey).toLowerCase().includes(k));
+  });
+
+  document.getElementById("recent").innerHTML = [...apps].sort((a, b) => b.freq - a.freq).slice(0, 6)
+    .map(a => `<div class="r-item" onclick="openPortalAppByName('${esc(a.name)}')"><span>${a.icon}</span>${esc(a.name)}<span class="fs-12 text-secondary">${a.freq} 次</span></div>`).join("");
+
+  const groups = {};
+  apps.forEach(a => (groups[groupKey(a)] = groups[groupKey(a)] || []).push(a));
+  document.getElementById("groups").innerHTML = Object.entries(groups).map(([g, list]) => `
+    <div class="group-title">${esc(g)} <span class="n">${list.length} 个应用 · 无权限应用不展示（G4）</span></div>
+    <div class="app-cards">${list.map(a => `
+      <div class="app-card" onclick="openPortalAppByName('${esc(a.name)}')">
+        <div class="ic" style="background:${a.color}">${a.icon}</div>
+        <div class="nm">${esc(a.name)}</div>
+        <div class="ds">${esc(appDesc(a))}</div>
+        ${a.kind === "workflow" ? '<span class="tag-wf">流程应用</span>' : ""}
+      </div>`).join("")}</div>`).join("")
+    || `<div class="card"><div class="state-box"><div class="illus">🔍</div><div class="txt">未找到匹配「${esc(kw)}」的应用</div><div class="code">应用由管理员在「门户运营 → 应用管理」上架；流程类走 C1-F01-8 发布</div></div></div>`;
+}
+
+document.getElementById("kw").addEventListener("input", e => render(e.target.value.trim()));
+function renderAll(){ stateSwitcher("stateHost", function(){ applyState(); }); applyState(); }
+function applyState(){
+  var st=pageState();
+  var sr=document.querySelector(".search-row"), rs=document.getElementById("recent"), gs=document.getElementById("groups"), h1=document.querySelector("main h1"), dc=document.getElementById("domainChips");
+  var els=[sr,h1,dc];
+  if(st==="normal"){ els.forEach(function(e){if(e)e.style.display="";}); if(rs)rs.style.display=""; if(gs)gs.style.display=""; var b=document.getElementById("stateBox"); if(b)b.remove(); renderDomainChips(); render(); return; }
+  els.forEach(function(e){if(e)e.style.display="none";}); if(rs)rs.style.display="none"; if(gs)gs.style.display="none";
+  var box=document.getElementById("stateBox"); if(!box){box=document.createElement("div");box.id="stateBox";document.getElementById("stateHost").after(box);}
+  renderStateBox(box,st,{name:"应用列表",emptyText:"暂无可访问的应用",emptyHint:"应用由管理员在「门户运营 → 应用管理」上架",action:"返回首页",actionHref:"home-v2.html"});
+}
+renderAll();
+</script>
+</body>
+</html>

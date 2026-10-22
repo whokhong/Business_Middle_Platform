@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移动端首页 v2 · 意图流（Notion·Claude 暖色风） · 麓邦业务中台</title>
+<link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/common.css">
+<style>
+  /* ============================================================
+     移动端首页 v2 · 打破「金刚区 + 宫格」门户范式
+     范式：① 数据罗列→AI判断  ② 应用导航→意图流  ③ 均匀栅格→时间轴+视觉权重
+     风格：Notion / Claude 暖色极简（Design Token 沿用 style-samples/sample-notion.html）
+     零依赖：内联样式 · 系统字体 · 无外链 · 图标用 emoji / 内联 SVG
+     ============================================================ */
+
+  :root {
+    /* —— Notion·Claude 暖色 Token（同 sample-notion.html） —— */
+    --page-bg: #ffffff;
+    --canvas: #f6f5f4;          /* 移动端暖白画布（区块底） */
+    --surface: #f6f5f4;
+    --surface-2: #ffffff;
+    --surface-hover: #efedea;
+    --dark-surface: #31302e;
+    --device-frame-bg: #e9e7e4;
+    --device-frame-ink: #31302e;
+
+    --text-primary: rgba(0, 0, 0, .95);
+    --text-secondary: #615d59;
+    --text-weak: #767068;
+
+    --accent: #C8161D;          /* 麓邦红 */
+    --accent-warm: #dd5b00;     /* 暖橙 */
+    --accent-warm-dark: #a2620a;    /* 暖橙深色档（浅底文字） */
+
+    --line: 1px solid rgba(0, 0, 0, .1);
+    --line-strong: 1px solid rgba(0, 0, 0, .16);
+    --shadow-soft:
+      rgba(0, 0, 0, .04) 0 4px 18px,
+      rgba(0, 0, 0, .027) 0 2px 8px,
+      rgba(0, 0, 0, .02) 0 .8px 3px;
+    --shadow-lift:
+      rgba(0, 0, 0, .05) 0 8px 28px,
+      rgba(0, 0, 0, .035) 0 3px 10px,
+      rgba(0, 0, 0, .025) 0 1px 4px;
+
+    --r-card: 8px;
+    --r-pill: 9999px;
+    --font: Inter, -apple-system, "PingFang SC", sans-serif;
+
+    /* —— 底部全局导航（Tab 栏）尺寸 Token —— */
+    --tabbar-h: 56px;          /* Tab 栏内容高度（≥44px 触控） */
+    --home-ind-h: 22px;        /* home indicator 安全区高度（沿用手机壳既有规格） */
+    --bottom-chrome: calc(var(--tabbar-h) + var(--home-ind-h) + env(safe-area-inset-bottom));
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    font-family: var(--font);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--device-frame-bg);
+    display: flex; align-items: center; justify-content: center;
+    gap: 48px; min-height: 100vh; padding: 24px;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+
+  /* ============================================================
+     ① 手机壳（沿用 index.html 容器规格，保留钉钉容器与切屏机制）
+     ============================================================ */
+  .phone {
+    width: 375px; height: 760px; background: #fff;
+    border-radius: 40px; border: 10px solid var(--device-frame-ink);
+    box-shadow: 0 12px 32px rgba(0,0,0,.16);
+    overflow: hidden; display: flex; flex-direction: column;
+    position: relative; flex-shrink: 0;
+  }
+  .status-bar { height: 28px; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 11px; font-weight: 600; color: var(--device-frame-ink); flex-shrink: 0; }
+  /* 钉钉容器导航栏（决议 #2：以钉钉为准出稿） */
+  .dt-navbar { height: 44px; background: #fff; border-bottom: 1px solid rgba(0,0,0,.08); display: flex; align-items: center; padding: 0 12px; gap: 10px; flex-shrink: 0; position: relative; }
+  .dt-navbar .back { font-size: 18px; color: var(--text-primary); cursor: pointer; width: 28px; }
+  .dt-navbar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--text-primary); margin-right: 28px; letter-spacing: -.2px; }
+  .dt-navbar .dt-logo { position: absolute; right: 14px; font-size: 10px; color: #1677FF; font-weight: 600; }
+  .screen { flex: 1; overflow-y: auto; background: var(--canvas); position: relative; scroll-behavior: smooth; display: none; }
+  .screen.active { display: block; }
+  .screen::-webkit-scrollbar { width: 0; }
+  .home-indicator { height: 22px; background: #fff; border-top: 1px solid rgba(0,0,0,.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .home-indicator::after { content: ""; width: 120px; height: 4px; border-radius: 2px; background: var(--device-frame-ink); opacity: .85; }
+
+  /* 免登演示层（UIUX 5.6：全程无登录界面） */
+  .free-login { position: absolute; inset: 0; background: #fff; z-index: 90; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .free-login.show { display: flex; }
+  .spinner-lg { width: 34px; height: 34px; border: 3px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============================================================
+     ② 下拉唤起 AI 指示器
+     ============================================================ */
+  .pull-indicator {
+    position: absolute; top: 0; left: 0; right: 0; height: 60px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    pointer-events: none; opacity: 0; z-index: 25;
+    background: linear-gradient(180deg, rgba(221,91,0,.08), rgba(221,91,0,0));
+  }
+  .pull-indicator .pi-spark { color: var(--accent-warm); font-size: 16px; }
+  .pull-indicator.ready { color: var(--accent); }
+
+  /* ============================================================
+     ③ 内容容器
+     ============================================================ */
+  .m-wrap { padding: 10px 14px 80px; transition: transform .2s ease; }
+
+  /* 通用屏容器（待办 / 审批 / 消息 / 我的）
+     —— 底部留白：因 Tab 栏为 flex 兄弟节点（不叠加内容），只需为「滚动后出现的行动栏」留白
+     —— 各屏主内容区留白 ≥ 行动栏高度（66px），保证最后一条内容不被行动栏遮挡 */
+  .pane { padding: 10px 14px 88px; }
+  .pane-head { display: flex; align-items: baseline; gap: 8px; margin: 2px 2px 12px; }
+  .pane-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.4px; color: var(--text-primary); }
+  .pane-head .ph-note { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+
+  /* 屏内三级视图 Tab（待办：待办/已办/我发起的） */
+  .seg {
+    display: flex; gap: 4px; padding: 3px; margin: 0 0 12px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-pill);
+  }
+  .seg .sg {
+    flex: 1; min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    transition: background .15s, color .15s;
+  }
+  .seg .sg.active { background: var(--surface-2); color: var(--accent); box-shadow: var(--shadow-soft); }
+
+  /* 通用列表卡 */
+  .m-card {
+    background: var(--surface-2); border: var(--line); border-radius: var(--r-card);
+    padding: 12px 13px; margin-bottom: 8px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .m-card:active { background: var(--surface); border-color: rgba(0,0,0,.2); }
+  .m-card .mc-top { display: flex; align-items: center; gap: 8px; }
+  .m-card .mc-top .r-dot { width: 7px; height: 7px; border-radius: var(--r-pill); flex: none; } /* .r-dot 尺寸原仅作用于 .row，此处补齐列表卡场景 */
+  .m-card .mc-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.4; letter-spacing: -.1px; color: var(--text-primary); }
+  .m-card .mc-top .r-src { flex: none; font-size: 10px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); padding: 2px 6px; border-radius: 4px; background: var(--surface); } /* .r-src 原仅作用于 .row，此处补齐 */
+  .m-card .mc-sub { margin-top: 6px; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .m-card .mc-sub .sep { color: rgba(0,0,0,.18); }
+  .m-card .mc-foot { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+  .m-card .mc-timer { margin-left: auto; font-size: 12px; font-weight: 700; }
+  .mc-timer.danger { color: var(--accent); }
+  .mc-timer.warn { color: var(--accent-warm); }
+  .mc-timer.calm { color: var(--text-weak); font-weight: 500; }
+  .m-card .mc-go {
+    height: 44px; padding: 0 16px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-card);
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+  }
+  .m-card .mc-go:active { background: var(--surface-hover); }
+
+  /* 消息列表：左侧图标 + 未读小圆点 */
+  .msg-item {
+    display: flex; gap: 11px; align-items: flex-start;
+    background: var(--surface-2); border: var(--line); border-radius: var(--r-card);
+    padding: 13px; margin-bottom: 8px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .msg-item:active { background: var(--surface); border-color: rgba(0,0,0,.2); }
+  .msg-item .mi-ic {
+    width: 36px; height: 36px; flex: none; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+    background: var(--surface); border: var(--line);
+  }
+  .msg-item .mi-main { flex: 1; min-width: 0; }
+  .msg-item .mi-top { display: flex; align-items: center; gap: 6px; }
+  .msg-item .mi-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.35; }
+  .msg-item.unread .mi-title { font-weight: 700; }
+  .msg-item .mi-dot { width: 8px; height: 8px; flex: none; border-radius: var(--r-pill); background: var(--accent); }
+  .msg-item .mi-meta { margin-top: 5px; font-size: 11.5px; color: var(--text-weak); display: flex; align-items: center; gap: 6px; }
+
+  /* 「我的」个人信息卡 */
+  .me-hero {
+    display: flex; align-items: center; gap: 13px;
+    background: var(--surface-2); border: var(--line-strong); border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+    padding: 16px; margin-bottom: 12px; position: relative; overflow: hidden;
+  }
+  .me-hero::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, var(--accent), var(--accent-warm)); }
+  .me-avatar {
+    width: 52px; height: 52px; flex: none; border-radius: var(--r-pill);
+    background: var(--dark-surface); color: #f6f5f4;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600;
+  }
+  .me-info { min-width: 0; flex: 1; }
+  .me-info .me-nm { font-size: 18px; font-weight: 700; letter-spacing: -.3px; color: var(--text-primary); }
+  .me-info .me-org { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-top: 2px; }
+  .me-roles { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .me-role { font-size: 10px; font-weight: 700; letter-spacing: .125px; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(200,22,29,.09); color: var(--accent); }
+
+  /* 「我的」功能入口分组 */
+  .me-group { background: var(--surface-2); border: var(--line); border-radius: var(--r-card); overflow: hidden; margin-bottom: 12px; }
+  .me-item {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 52px; padding: 0 14px;
+    border-bottom: var(--line); cursor: pointer;
+    transition: background .15s;
+  }
+  .me-item:last-child { border-bottom: none; }
+  .me-item:active { background: var(--surface); }
+  .me-item .mei-ic { width: 26px; flex: none; font-size: 17px; text-align: center; }
+  .me-item .mei-tx { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .me-item .mei-sub { font-size: 11px; font-weight: 500; color: var(--text-weak); }
+  .me-item .mei-go { flex: none; color: var(--text-weak); font-size: 14px; }
+  .me-item.danger .mei-tx { color: var(--accent); }
+
+  /* —— 一行精简问候 + AI 入口（去掉原渐变大横幅） —— */
+  .greet-row { display: flex; align-items: center; gap: 10px; padding: 4px 2px 12px; }
+  .greet-avatar {
+    width: 34px; height: 34px; flex: none; border-radius: var(--r-pill);
+    background: var(--dark-surface); color: #f6f5f4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+  }
+  .greet-text { flex: 1; min-width: 0; }
+  .greet-text .g1 { font-size: 15px; font-weight: 700; letter-spacing: -.2px; color: var(--text-primary); }
+  .greet-text .g2 { font-size: 12px; font-weight: 500; color: var(--text-weak); margin-top: 1px; }
+  .ai-entry {
+    flex: none; display: flex; align-items: center; gap: 5px;
+    height: 44px; padding: 0 14px;
+    background: var(--surface-2); border: var(--line-strong);
+    border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    box-shadow: var(--shadow-soft);
+    transition: background .15s, transform .15s;
+  }
+  .ai-entry:active { background: var(--surface-hover); transform: scale(.97); }
+  .ai-entry .spark { color: var(--accent); font-size: 15px; }
+
+  /* ============================================================
+     ④ 通知 Banner（钉钉导航栏之下 · 问候行之上）
+     —— 紧凑单行：一行显示类型标签 + 标题 + 箭头（不占太多首屏）
+     —— 触控区 ≥44px；无条目完全不占位；可关闭（会话内）
+     ============================================================ */
+  .nb {
+    display: none; align-items: center; gap: 8px;
+    min-height: 44px; padding: 8px 12px 8px 14px;
+    background: linear-gradient(180deg, #fdf6f1, var(--surface-2));
+    border: var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-soft);
+    margin: 2px 0 10px;
+    position: relative; overflow: hidden;
+    cursor: pointer;
+  }
+  .nb.on { display: flex; }
+  .nb::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent-warm);
+  }
+  .nb-ic { flex: none; font-size: 14px; }
+  .nb-tag {
+    flex: none; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
+    background: rgba(221,91,0,.12); color: var(--accent-warm);
+    font-size: 10px; font-weight: 700; letter-spacing: .125px;
+    display: inline-flex; align-items: center;
+  }
+  .nb-tag.pin { background: var(--accent); color: #fff; }
+  .nb-title {
+    flex: 1; min-width: 0; font-size: 13px; font-weight: 600; letter-spacing: -.1px;
+    color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .nb-count { flex: none; font-size: 10px; font-weight: 600; color: var(--text-weak); }
+  .nb-go { flex: none; color: var(--text-weak); font-size: 13px; }
+  .nb-close {
+    flex: none; width: 28px; height: 28px; margin: -6px -6px -6px 0;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; border-radius: var(--r-pill);
+    color: var(--text-weak); font-size: 13px;
+  }
+  .nb-close:active { background: rgba(0,0,0,.06); }
+
+  /* 待办大卡（首屏核心）保持紧随其后 */
+  #heroBox { scroll-margin-top: 8px; }
+
+  /* ============================================================
+     ④ 最紧急事项大卡（MobileHeroTask）—— 视觉权重的核心
+     ============================================================ */
+  .hero {
+    position: relative; overflow: hidden;
+    background: var(--surface-2);
+    border: var(--line-strong);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lift);
+    padding: 16px 16px 15px 18px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .hero::before { /* 麓邦红强调竖条：一眼落点 */
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-warm));
+  }
+  .hero-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 20px; padding: 0 8px;
+    background: rgba(200,22,29,.1); color: var(--accent);
+    border-radius: var(--r-pill);
+    font-size: 11px; font-weight: 700; letter-spacing: .125px;
+  }
+  .hero-src { font-size: 11px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .hero-title {
+    font-size: 18px; font-weight: 700; line-height: 1.32; letter-spacing: -.3px;
+    color: var(--text-primary); margin: 0 0 10px;
+  }
+  .hero-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin-bottom: 13px; }
+  .hero-meta .sep { color: rgba(0,0,0,.18); }
+  .hero-timer {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 13px; font-weight: 700;
+    padding: 3px 10px; border-radius: var(--r-pill);
+  }
+  .hero-timer.danger { background: rgba(200,22,29,.09); color: var(--accent); }
+  .hero-timer.warn { background: rgba(221,91,0,.1); color: var(--accent-warm); }
+  .hero-timer.calm { background: var(--surface); color: var(--text-secondary); }
+  .hero-actions { display: flex; align-items: center; gap: 10px; }
+  .hero-btn {
+    height: 46px; flex: 1; /* 触控 ≥44px */
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--r-card);
+    font-size: 15px; font-weight: 600;
+    transition: background .15s, transform .12s;
+  }
+  .hero-btn:active { background: var(--accent-warm); transform: scale(.98); }
+  .hero-btn-ghost {
+    height: 46px; flex: none; padding: 0 14px;
+    background: var(--surface); border: var(--line);
+    border-radius: var(--r-card);
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    transition: background .15s;
+  }
+  .hero-btn-ghost:active { background: var(--surface-hover); }
+
+  /* ============================================================
+     ⑤ AI 简报（可展开，不占大块）
+     ============================================================ */
+  .brief {
+    background: var(--surface-2); border: var(--line);
+    border-radius: var(--r-card); padding: 13px 14px;
+    margin-bottom: 16px; cursor: pointer;
+    transition: box-shadow .18s, background .18s;
+  }
+  .brief:active { background: var(--surface); }
+  .brief-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .brief-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--accent-warm), var(--accent));
+    color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .125px;
+  }
+  .brief-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -.1px; }
+  .brief-toggle { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--accent); }
+  .brief-line { font-size: 14px; font-weight: 500; line-height: 1.55; color: var(--text-secondary); margin: 0; }
+  .brief-line b { color: var(--text-primary); font-weight: 700; }
+  .brief-line .em { color: var(--accent); font-weight: 700; }
+  .brief-more { max-height: 0; overflow: hidden; transition: max-height .18s ease, opacity .18s ease, margin .18s ease; opacity: 0; }
+  .brief.open .brief-more { max-height: 300px; opacity: 1; margin-top: 10px; }
+  .brief-more .bm-item {
+    display: flex; gap: 8px; padding: 8px 0;
+    border-top: var(--line); font-size: 13px; line-height: 1.5; color: var(--text-secondary);
+  }
+  .brief-more .bm-item .n {
+    flex: none; width: 18px; height: 18px; border-radius: var(--r-pill);
+    background: var(--surface); color: var(--text-primary);
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brief-foot { margin-top: 8px; padding-top: 8px; border-top: var(--line); font-size: 12px; font-weight: 500; color: var(--text-weak); }
+
+  /* ============================================================
+     ⑥ 意图胶囊（横向滚动，取代金刚区作为主入口）
+     ============================================================ */
+  .intents { margin-bottom: 18px; }
+  .sec-label {
+    display: flex; align-items: baseline; gap: 8px; margin: 0 2px 10px;
+  }
+  .sec-label h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.25px; color: var(--text-primary); }
+  .sec-label .note { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .intent-scroll {
+    display: flex; gap: 10px; overflow-x: auto;
+    margin: 0 -14px; padding: 2px 14px 6px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .intent-scroll::-webkit-scrollbar { display: none; }
+  .intent {
+    flex: none; display: flex; align-items: center; gap: 7px;
+    height: 44px; padding: 0 15px;          /* 触控 ≥44px */
+    background: var(--surface-2); border: var(--line);
+    border-radius: var(--r-pill);
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap;
+    box-shadow: rgba(0,0,0,.03) 0 2px 6px;
+    transition: background .15s, border-color .15s, transform .12s;
+  }
+  .intent:active { background: var(--surface); border-color: rgba(0,0,0,.2); transform: scale(.96); }
+  .intent .ic { font-size: 15px; }
+  .intent.hot { border-color: rgba(200,22,29,.28); background: rgba(200,22,29,.05); }
+
+  /* ============================================================
+     ⑥·补 我的订阅（规格 3 · 移动端）
+     —— 位置：意图胶囊之后、全部应用折叠之前（与 PC 右栏「在上」呼应）
+     —— 形式：横向滚动订阅小卡（移动端不适合右栏式列表）
+     —— 数据：与 PC 同源（localStorage key: bmp_my_subscriptions）
+     —— 空态：不占位（参考移动端「无则不占位」既有做法）
+     ============================================================ */
+  .subs { margin-bottom: 18px; }
+  .subs[hidden] { display: none; }          /* 无订阅 → 整段不占位 */
+  .sub-scroll {
+    display: flex; gap: 10px; overflow-x: auto;
+    margin: 0 -14px; padding: 2px 14px 6px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .sub-scroll::-webkit-scrollbar { display: none; }
+  .sub-card {
+    flex: none; width: 88px; min-height: 84px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 8px;
+    background: var(--surface-2); border: var(--line);
+    border-radius: var(--r-card);
+    box-shadow: rgba(0,0,0,.03) 0 2px 6px;
+    transition: background .15s, border-color .15s, transform .12s;
+  }
+  .sub-card:active { background: var(--surface); border-color: rgba(200,22,29,.28); transform: scale(.96); }
+  .sub-card .sc-ic { font-size: 24px; line-height: 1; }
+  .sub-card .sc-nm {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: center;
+    line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+
+  /* ============================================================
+     ⑥·补2 页面入口卡（决议 #5b · 移动端）
+     —— 规格 C：移动端窄屏不适合嵌入大屏（iframe 完全不可用）→ 不渲染 iframe
+     —— 改为「页面入口卡」：标题 + 图标 + 「打开」→ 走 #5 语义（新标签页 / 全屏打开）
+     —— 位置：意图胶囊 / 我的订阅之后、全部应用之前（属于"直达入口"层级，与订阅同类）
+     —— 数据：与 PC 同源（localStorage key: bmp_embed_cards），无则用预置演示清单
+     ============================================================ */
+  .embeds { margin-bottom: 18px; }
+  .embeds[hidden] { display: none; }
+  .emb-scroll {
+    display: flex; gap: 10px; overflow-x: auto;
+    margin: 0 -14px; padding: 2px 14px 6px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .emb-scroll::-webkit-scrollbar { display: none; }
+  .emb-card {
+    flex: none; width: 176px;
+    display: flex; flex-direction: column; gap: 9px;
+    padding: 12px;
+    background: var(--surface-2); border: var(--line);
+    border-radius: var(--r-card);
+    box-shadow: rgba(0,0,0,.03) 0 2px 6px;
+    transition: background .15s, border-color .15s, transform .12s;
+  }
+  .emb-card:active { background: var(--surface); border-color: rgba(200,22,29,.28); transform: scale(.98); }
+  .emb-card .ec-top { display: flex; align-items: center; gap: 8px; }
+  .emb-card .ec-ic {
+    width: 30px; height: 30px; flex: none; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    background: var(--surface); border: var(--line);
+  }
+  .emb-card .ec-tt { min-width: 0; flex: 1; }
+  .emb-card .ec-nm {
+    font-size: 12.5px; font-weight: 700; color: var(--text-primary); letter-spacing: -.1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .emb-card .ec-host { font-size: 10px; font-weight: 500; color: var(--text-weak); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .emb-card .ec-note {
+    font-size: 10.5px; line-height: 1.45; color: var(--text-weak);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .emb-card .ec-open {
+    height: 34px; border: none; border-radius: var(--r-card);
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+    transition: background .15s, transform .12s;
+  }
+  .emb-card .ec-open:active { background: var(--accent-warm); transform: scale(.97); }
+
+  /* ============================================================
+     ⑦ 时间轴流（紧迫度分组 + 视觉权重递减 + 左右滑手势）
+     ============================================================ */
+  .group { margin-bottom: 16px; }
+  .group-head { display: flex; align-items: center; gap: 7px; margin: 0 2px 8px; }
+  .group-head .gd { width: 8px; height: 8px; border-radius: var(--r-pill); }
+  .gd-now { background: var(--accent); }
+  .gd-week { background: var(--accent-warm); }
+  .gd-know { background: var(--text-weak); }
+  .group-head h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: -.1px; color: var(--text-primary); }
+  .group-head .cnt { font-size: 11px; font-weight: 600; color: var(--text-weak); }
+  .group-hint { margin-left: auto; font-size: 10px; font-weight: 500; color: var(--text-weak); }
+
+  /* 可左右滑的待办行 */
+  .swipe {
+    position: relative; overflow: hidden;
+    border-radius: var(--r-card); margin-bottom: 8px;
+    background: var(--surface-2);
+  }
+  .swipe-bg {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .swipe-bg .sb-left { opacity: 0; color: var(--accent-warm); } /* 右滑露出：稍后 */
+  .swipe-bg .sb-right { opacity: 0; color: #16A34A; }           /* 左滑露出：完成 */
+  .swipe-right-bg { position: absolute; inset: 0; background: rgba(22,163,74,.12); }
+  .swipe-left-bg  { position: absolute; inset: 0; background: rgba(221,91,0,.12); }
+  .row {
+    position: relative; background: var(--surface-2);
+    border: var(--line); border-radius: var(--r-card);
+    padding: 12px 13px; cursor: pointer;
+    will-change: transform;
+  }
+  .row .r-top { display: flex; align-items: center; gap: 8px; }
+  .row .r-dot { width: 7px; height: 7px; border-radius: var(--r-pill); flex: none; }
+  .r-dot-urgent { background: var(--accent); }
+  .r-dot-important { background: var(--accent-warm); }
+  .r-dot-normal { background: var(--text-weak); }
+  .row .r-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.4; letter-spacing: -.1px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .r-src {
+    flex: none; font-size: 10px; font-weight: 600; letter-spacing: .125px;
+    color: var(--text-weak); padding: 2px 6px; border-radius: 4px; background: var(--surface);
+  }
+  .row .r-sub { margin-top: 6px; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .row .r-sub .sep { color: rgba(0,0,0,.18); }
+  .row .r-timer { margin-left: auto; font-size: 12px; font-weight: 700; }
+  .r-timer.danger { color: var(--accent); }
+  .r-timer.warn { color: var(--accent-warm); }
+  .r-timer.calm { color: var(--text-weak); font-weight: 500; }
+  .row .r-go {
+    margin-top: 9px; height: 44px; padding: 0 14px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-card);
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+  }
+  .row .r-go:active { background: var(--surface-hover); }
+
+  /* 视觉权重递减：知悉组更小更克制 */
+  .group.aware .row { padding: 10px 12px; }
+  .group.aware .r-title { font-size: 13.5px; font-weight: 500; color: var(--text-secondary); }
+
+  .group-empty { font-size: 13px; color: var(--text-weak); padding: 10px 2px; }
+
+  /* ============================================================
+     ⑧ 应用收纳入口（宫格降级到次级）
+     ============================================================ */
+  .apps-fold {
+    background: var(--surface-2); border: var(--line);
+    border-radius: var(--r-card); overflow: hidden;
+  }
+  .apps-fold-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px; cursor: pointer;
+  }
+  .apps-fold-head .af-t { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .apps-fold-head .af-n { font-size: 11px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .apps-fold-head .af-arrow { margin-left: auto; font-size: 12px; color: var(--text-weak); transition: transform .18s; }
+  .apps-fold.open .apps-fold-head .af-arrow { transform: rotate(180deg); }
+  .apps-body { max-height: 0; overflow: hidden; transition: max-height .18s ease; }
+  .apps-fold.open .apps-body { max-height: 420px; }
+  .apps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 6px 14px; }
+  .apps-grid .a {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 2px; min-height: 44px; border-radius: var(--r-card); cursor: pointer;
+    transition: background .15s;
+  }
+  .apps-grid .a:active { background: var(--surface); }
+  .apps-grid .a .ic {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .apps-grid .a .nm { font-size: 10.5px; font-weight: 500; color: var(--text-secondary); }
+
+  .foot-note { margin: 16px 2px 0; font-size: 11px; line-height: 1.6; color: var(--text-weak); text-align: center; }
+
+  /* ============================================================
+     ⑨·前置 底部全局导航（Tab 栏）—— 五项：首页/待办/审批/消息/我的
+     —— 定位方案：Tab 栏为 .phone 的 flex 子元素（在屏容器与 home indicator 之间）
+        因此它「天然不遮挡」内容（屏容器 flex:1 自动收缩到 Tab 栏之上）
+     —— 视觉层次：z-index 40（高于内容 z-index 30 的行动栏，低于抽屉 z-index 60）
+     —— 触控：每项最小 44px；激活态用麓邦红强调；角标为 0 时不显示
+     ============================================================ */
+  .tabbar {
+    flex: none; position: relative; z-index: 40;
+    height: var(--tabbar-h);
+    display: flex; align-items: stretch;
+    background: rgba(255,255,255,.94);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-top: var(--line-strong);
+    padding-bottom: env(safe-area-inset-bottom); /* 真机安全区（壳内为 0） */
+  }
+  .tab-item {
+    flex: 1; min-width: 44px; min-height: 44px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: none; padding: 6px 0 4px;
+    color: var(--text-weak);
+    font-size: 10.5px; font-weight: 600; letter-spacing: .1px;
+    transition: color .15s;
+  }
+  .tab-item .ti-ic { position: relative; font-size: 20px; line-height: 1; filter: grayscale(1) opacity(.55); transition: filter .15s, transform .15s; }
+  .tab-item .ti-tx { color: inherit; }
+  .tab-item:active .ti-ic { transform: scale(.9); }
+  .tab-item.active { color: var(--accent); }
+  .tab-item.active .ti-ic { filter: none; transform: translateY(-1px); }
+  .tab-item .ti-badge {
+    position: absolute; top: -5px; right: -10px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff;
+    border-radius: var(--r-pill);
+    font-size: 10px; font-weight: 700; line-height: 1;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .tab-item .ti-badge[hidden] { display: none; }  /* 覆盖 flex，保证「为 0 不显示」 */
+
+  /* ============================================================
+     ⑨ 底部固定行动栏（对最紧急项直接操作）
+     —— 与 Tab 栏共存：坐落于 Tab 栏「之上」（bottom = Tab 栏 + home indicator 高度）
+     —— 二者不重叠；行动栏改为「滚动后出现」（回顶收起）
+     ============================================================ */
+  .action-bar {
+    position: absolute; left: 0; right: 0; bottom: var(--bottom-chrome); z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,.9);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-top: var(--line);
+    transform: translateY(140%);
+    transition: transform .18s cubic-bezier(.22,.61,.36,1);
+  }
+  .action-bar.show { transform: translateY(0); }
+  .ab-info { flex: 1; min-width: 0; }
+  .ab-info .ab-t {
+    font-size: 12.5px; font-weight: 700; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ab-info .ab-s { font-size: 11px; font-weight: 600; color: var(--accent); margin-top: 2px; }
+  .ab-ai {
+    flex: none; width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    border: var(--line); background: var(--surface-2);
+    border-radius: var(--r-card); font-size: 18px; color: var(--accent);
+    transition: background .15s;
+  }
+  .ab-ai:active { background: var(--surface); }
+  .ab-go {
+    flex: none; height: 46px; padding: 0 20px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--r-card); font-size: 15px; font-weight: 600;
+    transition: background .15s, transform .12s;
+  }
+  .ab-go:active { background: var(--accent-warm); transform: scale(.97); }
+
+  /* 演示用 AI 助手 FAB（Tab 栏之上 · z45） */
+  .m-ai-fab-wrap {
+    position: absolute; right: 14px; bottom: calc(var(--bottom-chrome) + 10px); z-index: 45;
+  }
+  .m-ai-fab-wrap[hidden] { display: none !important; }
+  .m-ai-fab {
+    width: 52px; height: 52px; border: none; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--accent-warm), var(--accent));
+    color: #fff; box-shadow: var(--shadow-lift);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform .15s;
+  }
+  .m-ai-fab:active { transform: scale(.96); }
+
+  /* ============================================================
+     ⑩ 底部抽屉（AI 对话面板 / 任务处理 / 全部应用）
+     ============================================================ */
+  .mask {
+    position: absolute; left: 0; right: 0; top: 72px; bottom: 0; z-index: 55;
+    background: rgba(0,0,0,.32);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .mask.open { opacity: 1; pointer-events: auto; }
+
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: var(--page-bg);
+    border-radius: 18px 18px 0 0;
+    border-top: var(--line-strong);
+    box-shadow: 0 -12px 40px rgba(0,0,0,.16);
+    display: flex; flex-direction: column;
+    transform: translateY(101%);
+    transition: transform .18s cubic-bezier(.22,.61,.36,1);
+    overflow: hidden;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-ai { height: 74%; }
+  .sheet-task { max-height: 82%; }
+  .sheet-apps { height: 70%; }
+
+  .sheet-grab { width: 38px; height: 4px; border-radius: 2px; background: rgba(0,0,0,.16); margin: 8px auto 0; flex: none; }
+  .sheet-head {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-bottom: var(--line);
+  }
+  .sheet-head .sh-ic {
+    width: 30px; height: 30px; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--accent-warm), var(--accent));
+    color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .sheet-head .sh-t { font-size: 15px; font-weight: 700; letter-spacing: -.2px; color: var(--text-primary); }
+  .sheet-head .sh-s { font-size: 11.5px; font-weight: 500; color: var(--text-secondary); margin-top: 1px; }
+  .sheet-head .sh-close {
+    margin-left: auto; flex: none; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: none; border-radius: var(--r-pill);
+    color: var(--text-secondary); font-size: 15px;
+  }
+  .sheet-head .sh-close:active { background: var(--surface-hover); }
+
+  .sheet-body { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet-body::-webkit-scrollbar { width: 0; }
+
+  /* AI 消息 */
+  .msg { max-width: 84%; padding: 10px 13px; font-size: 14px; line-height: 1.5; border-radius: var(--r-card); }
+  .msg.ai { align-self: flex-start; background: var(--surface); border: var(--line); color: var(--text-primary); }
+  .msg.user { align-self: flex-end; background: var(--dark-surface); color: #f6f5f4; }
+  .msg .mt { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .msg.user .mt { color: rgba(255,255,255,.6); }
+
+  .quick-chips { flex: none; display: flex; gap: 8px; padding: 0 16px 12px; overflow-x: auto; scrollbar-width: none; }
+  .quick-chips::-webkit-scrollbar { display: none; }
+  .qchip {
+    flex: none; height: 44px; padding: 0 15px;
+    display: flex; align-items: center;
+    background: var(--surface-2); border: var(--line); border-radius: var(--r-pill);
+    font-size: 12.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .qchip:active { background: var(--surface); color: var(--accent); }
+
+  .sheet-input {
+    flex: none; display: flex; align-items: center; gap: 9px;
+    padding: 11px 16px calc(11px + 4px);
+    border-top: var(--line); background: var(--page-bg);
+  }
+  .sheet-input input {
+    flex: 1; height: 44px; padding: 0 14px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-card);
+    outline: none; font-size: 14px; color: var(--text-primary);
+  }
+  .sheet-input input::placeholder { color: var(--text-weak); }
+  .sheet-input input:focus { background: #fff; border-color: rgba(0,0,0,.22); }
+  .sheet-send {
+    flex: none; height: 44px; padding: 0 18px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--r-card);
+    font-size: 14px; font-weight: 600;
+  }
+  .sheet-send:active { background: var(--accent-warm); }
+
+  /* 任务详情 */
+  .task-title { font-size: 18px; font-weight: 700; line-height: 1.35; letter-spacing: -.3px; color: var(--text-primary); margin: 0 0 10px; }
+  .kv { display: flex; padding: 10px 0; border-bottom: var(--line); font-size: 13.5px; }
+  .kv:last-child { border-bottom: none; }
+  .kv dt { width: 88px; flex: none; color: var(--text-secondary); }
+  .kv dd { flex: 1; margin: 0; color: var(--text-primary); }
+  .task-timer-box {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px; border-radius: var(--r-card);
+    background: rgba(200,22,29,.06); border: 1px solid rgba(200,22,29,.16);
+    font-size: 13.5px; font-weight: 700; color: var(--accent);
+  }
+  .task-timer-box.calm { background: var(--surface); border-color: rgba(0,0,0,.1); color: var(--text-secondary); }
+  .task-actions { flex: none; display: flex; gap: 10px; padding: 12px 16px; border-top: var(--line); background: var(--page-bg); }
+  .task-actions .btn { height: 46px; font-size: 15px; flex: 1; }
+
+  /* Toast */
+  .toast {
+    position: absolute; left: 50%; bottom: 96px; z-index: 80;
+    transform: translate(-50%, 16px);
+    max-width: 300px; padding: 10px 16px;
+    background: var(--dark-surface); color: #f6f5f4;
+    border-radius: var(--r-card); font-size: 13px; font-weight: 500; line-height: 1.4;
+    box-shadow: var(--shadow-lift); opacity: 0;
+    transition: opacity .18s, transform .18s; pointer-events: none; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* 右侧说明面板 */
+  .notes { width: 320px; font-size: 13px; color: var(--bmp-text-secondary); line-height: 1.8; }
+  .notes h3 { font-size: 16px; font-weight: 700; color: var(--device-frame-ink); margin: 0 0 12px; }
+  .notes .n-item { background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .notes b { color: var(--accent); }
+  .notes .jump { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .notes .jump a { font-size: 12px; padding: 4px 10px; border-radius: 14px; background: rgba(200,22,29,.08); color: var(--accent); text-decoration: none; }
+
+  /* 可访问性（UIUX §4.7）：尊重系统「减少动态效果」 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+<script src="../assets/ui-style.js"></script>
+</head>
+<body>
+
+<!-- ========================= 手机壳 ========================= -->
+<div class="phone">
+  <div class="status-bar"><span>9:41</span><span>钉钉 · 5G ▮▮▮ 82%</span></div>
+  <div class="dt-navbar">
+    <span class="back" id="navBack" style="visibility:hidden" onclick="goBack()">‹</span>
+    <span class="title" id="navTitle">麓邦业务中台</span>
+    <span class="dt-logo">钉钉容器</span>
+  </div>
+
+  <!-- 免登演示层（UIUX 5.6：全程无登录界面） -->
+  <div class="free-login" id="freeLogin">
+    <div class="spinner-lg"></div>
+    <div style="font-size:13px;color:var(--text-secondary)">钉钉免登中：jsapi 获取免登码 → 换取 JWT…</div>
+  </div>
+
+  <!-- 屏 1：移动首页 v2（UI-M-01 重构） -->
+  <div class="screen active" id="s-home">
+    <div class="pull-indicator" id="pullIndicator"><span class="pi-spark">↻</span><span id="pullText">下拉刷新今日简报</span></div>
+
+    <div class="m-wrap" id="mWrap">
+
+      <!-- ① 通知 Banner（钉钉导航栏之下 · 问候行之上 · 单行紧凑 · 无则不占位） -->
+      <div class="nb" id="noticeBanner" onclick="openNoticeBanner()"></div>
+
+      <!-- ② 一行精简问候 + AI 入口（无渐变大横幅） -->
+      <div class="greet-row">
+        <div class="greet-avatar">张</div>
+        <div class="greet-text">
+          <div class="g1" id="greetLine">早上好，张三</div>
+          <div class="g2" id="greetSub">今天有 8 条待办 · 2 件要尽快处理</div>
+        </div>
+      </div>
+
+      <!-- ② 最紧急事项大卡（首屏落点） -->
+      <div id="heroBox"></div>
+
+      <!-- ③ AI 简报（可展开） -->
+      <div class="brief" id="briefCard" onclick="toggleBrief()">
+        <div class="brief-head">
+          <span class="brief-badge">今日简报</span>
+          <span class="brief-title">规则排序</span>
+          <span class="brief-toggle" id="briefToggle">展开 ▾</span>
+        </div>
+        <p class="brief-line" id="briefLine"></p>
+        <div class="brief-more" id="briefMore"></div>
+      </div>
+
+      <!-- ④ 意图胶囊（横滑，主入口） -->
+      <div class="intents">
+        <div class="sec-label"><h2>你想做什么</h2><span class="note">横滑 · 一句话直达</span></div>
+        <div class="intent-scroll" id="intentScroll"></div>
+      </div>
+
+      <!-- ④·补 我的订阅（规格 3：意图之后 · 全部应用之前；无订阅则不占位） -->
+      <div class="subs" id="subsBox" hidden>
+        <div class="sec-label"><h2>我的订阅</h2><span class="note">与 PC 同步 · 点按直达</span></div>
+        <div class="sub-scroll" id="subScroll"></div>
+      </div>
+
+      <!-- ④·补2 页面入口卡（决议 #5b · 移动端不嵌 iframe，改为入口卡走 #5 新标签页语义） -->
+      <div class="embeds" id="embedsBox" hidden>
+        <div class="sec-label"><h2>页面入口</h2><span class="note">大屏 / 看板 · 全屏打开</span></div>
+        <div class="emb-scroll" id="embScroll"></div>
+      </div>
+
+      <!-- ⑤ 其余待办：时间轴流 + 紧迫度分组（权重递减） -->
+      <div class="group" id="groupNow">
+        <div class="group-head"><span class="gd gd-now"></span><h3>今天必须做</h3><span class="cnt" id="cntNow"></span><span class="group-hint">右滑完成 · 左滑稍后</span></div>
+        <div id="listNow"></div>
+      </div>
+      <div class="group" id="groupWeek">
+        <div class="group-head"><span class="gd gd-week"></span><h3>本周待办</h3><span class="cnt" id="cntWeek"></span></div>
+        <div id="listWeek"></div>
+      </div>
+      <div class="group aware" id="groupKnow">
+        <div class="group-head"><span class="gd gd-know"></span><h3>知悉即可</h3><span class="cnt" id="cntKnow"></span></div>
+        <div id="listKnow"></div>
+      </div>
+
+      <!-- ⑥ 应用收纳入口（宫格降级到次级） -->
+      <div class="apps-fold" id="appsFold">
+        <div class="apps-fold-head" onclick="toggleApps()">
+          <span style="font-size:16px">🧩</span>
+          <span class="af-t">全部应用</span>
+          <span class="af-n">由意图流覆盖不到的角落需求</span>
+          <span class="af-arrow">▾</span>
+        </div>
+        <div class="apps-body">
+          <div class="apps-grid" id="appsGrid"></div>
+        </div>
+      </div>
+
+      <div class="foot-note">首页为「意图流」默认模板 · 区块已按新 cardId 注册 manifest（布局引擎可用）· 无权限应用不展示</div>
+    </div>
+  </div>
+
+  <!-- 屏 2：待办中心（Tab·待办）—— 三视图：待办 / 已办 / 我发起的 -->
+  <div class="screen" id="s-todos">
+    <div class="pane">
+      <div class="pane-head"><h2>待办中心</h2><span class="ph-note">与 PC 统一待办实时一致</span></div>
+      <div class="seg" id="todoSeg">
+        <button class="sg active" onclick="switchTodoView('todo')">待办</button>
+        <button class="sg" onclick="switchTodoView('done')">已办</button>
+        <button class="sg" onclick="switchTodoView('mine')">我发起的</button>
+      </div>
+      <div id="todoListView"></div>
+    </div>
+  </div>
+
+  <!-- 屏 3：审批中心（Tab·审批）—— 审批任务列表（站内可办 / 跳转） -->
+  <div class="screen" id="s-approval">
+    <div class="pane">
+      <div class="pane-head"><h2>审批中心</h2><span class="ph-note" id="apprNote">—</span></div>
+      <div id="approvalView"></div>
+    </div>
+  </div>
+
+  <!-- 屏 4：消息中心（Tab·消息）—— 消息列表 + 公告 -->
+  <div class="screen" id="s-messages">
+    <div class="pane">
+      <div class="pane-head"><h2>消息中心</h2><span class="ph-note" id="msgNote">—</span></div>
+      <div id="messageView"></div>
+    </div>
+  </div>
+
+  <!-- 屏 5：我的（Tab·我的）—— 个人信息 + 常用入口（含「我的订阅」管理入口） -->
+  <div class="screen" id="s-me">
+    <div class="pane">
+      <div class="pane-head"><h2>我的</h2><span class="ph-note">账号 · 订阅 · 设置</span></div>
+      <div id="meView"></div>
+    </div>
+  </div>
+
+  <!-- 屏 6：UI-M-04 消息卡片落地页（A2-F04，独立入口，可被钉钉/企微卡片外部 URL 直达）
+       —— 与「消息中心」为不同入口：本屏走 /m/messages/:id，从容器内消息卡片点入 -->
+  <div class="screen" id="s-msg-landing">
+    <div class="pane">
+      <div class="pane-head"><h2 id="landingHead">消息详情</h2><span class="ph-note" id="landingNote">钉钉卡片落地页</span></div>
+      <div id="landingView"></div>
+    </div>
+  </div>
+
+  <!-- 底部固定行动栏 -->
+  <div class="action-bar" id="actionBar">
+    <div class="ab-info">
+      <div class="ab-t" id="abTitle">—</div>
+      <div class="ab-s" id="abSub">—</div>
+    </div>
+    <button class="ab-go" onclick="openTask(HERO.id)">立即处理</button>
+  </div>
+
+  <!-- 遮罩 + 抽屉 -->
+  <div class="mask" id="mask" onclick="closeAllSheets()"></div>
+
+  <!-- 任务处理抽屉 -->
+  <div class="sheet sheet-task" id="taskSheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head">
+      <span class="sh-ic" style="background:var(--surface);color:var(--text-primary)">📋</span>
+      <div>
+        <div class="sh-t">待办处理</div>
+        <div class="sh-s" id="taskHeadSub">中台自有流程可直接办理</div>
+      </div>
+      <button class="sh-close" onclick="closeAllSheets()">✕</button>
+    </div>
+    <div class="sheet-body" id="taskBody"></div>
+    <div class="task-actions" id="taskActions"></div>
+  </div>
+
+  <!-- 全部应用抽屉 -->
+  <div class="sheet sheet-apps" id="appsSheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head">
+      <span class="sh-ic" style="background:var(--surface);color:var(--text-primary)">🧩</span>
+      <div>
+        <div class="sh-t">全部应用</div>
+        <div class="sh-s">SSO 免登直达 · 无权限应用不展示</div>
+      </div>
+      <button class="sh-close" onclick="closeAllSheets()">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="apps-grid" id="appsGridFull" style="padding:4px 0"></div>
+    </div>
+  </div>
+
+  <!-- AI 助手抽屉（原型演示 · mock 多轮） -->
+  <div class="sheet sheet-ai" id="aiSheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head">
+      <span class="sh-ic">✨</span>
+      <div>
+        <div class="sh-t">AI 助手</div>
+        <div class="sh-s" id="mAiRouteSub">模型路由 V2 · 演示</div>
+      </div>
+      <button class="sh-close" onclick="closeAllSheets()">✕</button>
+    </div>
+    <div class="sheet-body" id="mAiBody"></div>
+    <div class="quick-chips" id="mAiQuick">
+      <button type="button" class="qchip" onclick="mAiQuickSend('今天最紧急的事')">今日优先</button>
+      <button type="button" class="qchip" onclick="mAiQuickSend('总结待办')">总结待办</button>
+      <button type="button" class="qchip" onclick="mAiQuickSend('打开 CRM')">打开 CRM</button>
+    </div>
+    <div class="sheet-input">
+      <input id="mAiInput" type="text" autocomplete="off" placeholder="输入问题…">
+      <button type="button" class="sheet-send" id="mAiSendBtn" onclick="mAiSend()">发送</button>
+    </div>
+  </div>
+
+  <div class="m-ai-fab-wrap" id="mAiFabWrap">
+    <button type="button" class="m-ai-fab" id="mAiFab" aria-label="AI 助手" onclick="openMobileAiAssistant()">✨</button>
+  </div>
+
+  <!-- 底部全局导航（Tab 栏）：五项与 PC renderTopbar 一一对应（PC 的「应用」在移动端改为「我的」） -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab-item active" data-tab="s-home"     onclick="go('s-home','麓邦业务中台')"><span class="ti-ic">🏠</span><span class="ti-tx">首页</span></button>
+    <button class="tab-item"        data-tab="s-todos"    onclick="go('s-todos','待办中心')"><span class="ti-ic">📝<span class="ti-badge" id="tabBadgeTodos" hidden></span></span><span class="ti-tx">待办</span></button>
+    <button class="tab-item"        data-tab="s-approval" onclick="go('s-approval','审批中心')"><span class="ti-ic">✅<span class="ti-badge" id="tabBadgeApproval" hidden></span></span><span class="ti-tx">审批</span></button>
+    <button class="tab-item"        data-tab="s-messages" onclick="go('s-messages','消息中心')"><span class="ti-ic">💬<span class="ti-badge" id="tabBadgeMsg" hidden></span></span><span class="ti-tx">消息</span></button>
+    <button class="tab-item"        data-tab="s-me"       onclick="go('s-me','我的')"><span class="ti-ic">👤</span><span class="ti-tx">我的</span></button>
+  </nav>
+
+  <div class="home-indicator"></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- ========================= 右侧说明 ========================= -->
+<div class="notes">
+  <h3>移动端首页 v2 说明（打破门户范式）</h3>
+  <div class="n-item"><b>范式①</b>：数据罗列 → <b>规则简报</b>（V1.5 方案 A）。首屏「今日简报」按紧迫度排序，可展开明细；接口口径 <span class="mono">GET /v1/portal/brief?source=rule</span>。</div>
+  <div class="n-item"><b>范式②</b>：应用导航 → <b>意图流</b>。横向滚动的意图胶囊（发起审批 / 查合同 / 找人…）取代金刚区；应用宫格<b>降级</b>到页面底部/抽屉。</div>
+  <div class="n-item"><b>范式③</b>：均匀栅格 → <b>时间轴 + 视觉权重</b>。首屏一张「最紧急事项大卡」，其余按「今天必须做 / 本周 / 知悉」分组，权重逐级递减。</div>
+  <div class="n-item"><b>手势</b>：顶部<b>下拉刷新简报</b>；待办<b>右滑完成 / 左滑稍后</b>；底部固定行动栏在<b>滚动后出现</b>（回顶收起），对最紧急项一键处理。右下角 <b>✨ FAB</b> 为 <b>AI 助手</b>（A1-F02-9 · 验收演示默认开启，生产可配置关）。</div>
+  <div class="n-item"><b>全局导航</b>：底部 Tab 栏五项（首页 / 待办 / 审批 / 消息 / 我的），与 PC 顶栏 <span class="mono">renderTopbar</span> 一一对应；待办 / 审批 / 消息带未读角标（为 0 不显示）。Tab 栏位于屏容器与 home indicator 之间，<b>天然不遮挡内容</b>；行动栏坐落于 Tab 栏之上，二者不重叠。</div>
+  <div class="n-item"><b>钉钉容器兼容</b>：保留状态栏、钉钉导航栏、home indicator 与免登演示层。</div>
+  <div class="n-item">
+    <div class="jump">
+		  <a href="javascript:replayLogin()">▶ 重播免登</a>
+		  <a href="javascript:go('s-home','麓邦业务中台')">🏠 首页</a>
+		  <a href="javascript:go('s-todos','待办中心')">📝 待办</a>
+		  <a href="javascript:go('s-approval','审批中心')">✅ 审批</a>
+		  <a href="javascript:go('s-messages','消息中心')">💬 消息</a>
+		  <a href="javascript:go('s-me','我的')">👤 我的</a>
+		  <a href="../console.html?page=portal-apps&tab=intents" target="_blank">🎯 意图项配置</a>
+		  <a href="../console.html?page=portal-ai-assistant" target="_blank">✨ AI 助手配置</a>
+		  <a href="javascript:toggleNoticeDemo()" id="noticeDemoLink">📢 模拟无公告（Banner 不占位）</a>
+		</div>
+  </div>
+  <div class="n-item"><a href="index.html">← 对比原移动端（mobile/index.html）</a></div>
+  <div class="n-item"><a href="../index.html">← 返回原型总目录</a></div>
+</div>
+
+<script src="../assets/mock.js"></script>
+<script>
+  /* ============================================================
+     数据层：页面内定义（不改 mock.js）；字段沿用 mock 语义
+     urgency: 2 紧急 / 1 重要 / 0 普通   remainHours<0 表示已超时
+     mode: 站内（中台自有流程，可站内办理）/ 跳转（外部系统，SSO 直达）
+     ============================================================ */
+  var TODOS = [
+    { id: 1, urgency: 2, source: "CRM",     mode: "站内", title: "华宇科技采购合同 ¥120,000",        submitter: "王经理",   remainHours: 4,   overdue: false, time: "09-22 10:15" },
+    { id: 2, urgency: 2, source: "OA",      mode: "站内", title: "研发中心服务器扩容 ¥86,000",        submitter: "赵工",     remainHours: 6,   overdue: false, time: "09-22 09:40" },
+    { id: 3, urgency: 2, source: "招聘系统", mode: "跳转", title: "李四的入职 Offer 待确认（年薪 ¥38 万）", submitter: "钱经理",   remainHours: -48, overdue: true,  time: "09-20 09:00" },
+    { id: 4, urgency: 1, source: "CRM",     mode: "跳转", title: "恒信集团年度框架折扣 12%",          submitter: "陈晨",     remainHours: 9,   overdue: false, time: "09-21 17:30" },
+    { id: 5, urgency: 1, source: "招聘系统", mode: "跳转", title: "前端工程师简历初筛 ×3",            submitter: "招聘专员", remainHours: 20,  overdue: false, time: "09-21 16:00" },
+    { id: 6, urgency: 1, source: "OA",      mode: "站内", title: "李四 年假 2 天（09-25 ~ 09-26）",   submitter: "李四",     remainHours: 22,  overdue: false, time: "09-22 08:55" },
+    { id: 7, urgency: 0, source: "中台",     mode: "站内", title: "md:employee:edit 人员编辑权限申请",  submitter: "张三",     remainHours: 40,  overdue: false, time: "09-22 09:30" },
+    { id: 8, urgency: 0, source: "目标管理", mode: "跳转", title: "Q3 部门 OKR 对齐确认",             submitter: "周总",     remainHours: 60,  overdue: false, time: "09-21 14:00" }
+  ];
+
+  /* ============================================================
+     全局导航（Tab 栏）本地数据镜像 —— 不改 mock.js，仅页面内读取
+     —— 待办角标：MOCK.todos.length；审批角标：approvalCenter.todo.length；
+        消息角标：MOCK.messages 未读数
+     —— 待办中心三视图数据：待办=页面 TODOS、已办=MOCK.todosDone、
+        我发起的=MOCK.todosInitiated
+     ============================================================ */
+  var MSG_KEY = "bmp_read_messages";        // 会话内已读记录
+  function readMsgIds() {
+    try { return JSON.parse(sessionStorage.getItem(MSG_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function markMsgRead(id) {
+    var list = readMsgIds();
+    if (list.indexOf(id) === -1) list.push(id);
+    try { sessionStorage.setItem(MSG_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function unreadMsgCount() {
+    var list = readMsgIds();
+    return MOCK.messages.filter(function (m) { return m.unread && list.indexOf(m.id) === -1; }).length;
+  }
+  function pendingTodoCount() { return TODOS.length; }
+  function pendingApprovalCount() {
+    return (MOCK.workflow && MOCK.workflow.approvalCenter) ? MOCK.workflow.approvalCenter.todo.length : 0;
+  }
+  /* 刷新 Tab 角标：为 0 时不显示（hidden） */
+  function renderTabBadges() {
+    setBadge("tabBadgeTodos", pendingTodoCount());
+    setBadge("tabBadgeApproval", pendingApprovalCount());
+    setBadge("tabBadgeMsg", unreadMsgCount());
+  }
+  function setBadge(id, n) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.hidden = false; }
+    else { el.textContent = ""; el.hidden = true; }
+  }
+
+  /* 意图胶囊：与管理端 A1-F02-7 同源（MOCK.getPortalIntents · bmp_portal_intents） */
+  function getActiveIntents() {
+    if (window.MOCK && MOCK.getEffectiveIntents) return MOCK.getEffectiveIntents();
+    if (!window.MOCK || !MOCK.getPortalIntents) return [];
+    return MOCK.getPortalIntents()
+      .filter(function (it) { return it.enabled !== false; })
+      .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+
+  /* 应用（复用 MOCK.apps，可降级到抽屉） */
+  function appCatalog() {
+    return (window.MOCK && MOCK.getPortalCatalogApps) ? MOCK.getPortalCatalogApps() : ((MOCK && MOCK.apps) ? MOCK.apps : []);
+  }
+  var APP_LIST = appCatalog();
+
+  /* ============================================================
+     我的订阅（规格 3）—— 与 PC 端同源
+     —— 同一个 localStorage key：bmp_my_subscriptions
+     —— 同一份默认订阅清单（应用名与 PC 端完全一致）
+     —— PC 端写入的订阅，移动端读取即同步显示（反之亦然）
+     ============================================================ */
+  var SUB_KEY = (window.MOCK && MOCK.SUB_KEY) ? MOCK.SUB_KEY : "bmp_my_subscriptions";
+
+  function loadSubscriptions() {
+    if (window.MOCK && MOCK.getEffectiveSubscriptions) {
+      return MOCK.getEffectiveSubscriptions().names.slice();
+    }
+    try {
+      var raw = localStorage.getItem(SUB_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.filter(function (x) { return typeof x === "string"; });
+      }
+    } catch (e) { /* 解析失败 */ }
+    return ["CRM 客户管理", "招聘系统", "费用报销", "数据报表"];
+  }
+  /* 按订阅顺序取应用对象（找不到的自动跳过） */
+  function appsOfSubs() {
+    var names = loadSubscriptions();
+    var cat = appCatalog();
+    return names.map(function (n) {
+      return cat.filter(function (a) { return a.name === n; })[0];
+    }).filter(Boolean);
+  }
+
+  /* ============================================================
+     工具
+     ============================================================ */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2400);
+  }
+  function remainInfo(t) {
+    if (t.remainHours < 0) return { text: "已超时 " + Math.abs(t.remainHours) + " 小时", cls: "danger" };
+    if (t.remainHours <= 4) return { text: "还剩 " + t.remainHours + " 小时", cls: "danger" };
+    if (t.remainHours <= 24) return { text: "还剩 " + t.remainHours + " 小时", cls: "warn" };
+    return { text: "还剩 " + t.remainHours + " 小时", cls: "calm" };
+  }
+  function relDays(t) {
+    return t.overdue ? ("已等你 " + Math.round(Math.abs(t.remainHours) / 24) + " 天") : remainInfo(t).text;
+  }
+
+  /* ============================================================
+     选定最紧急事项（Hero）
+     —— 优先 urgency=2 且未超时中剩余时间最短者；均超时则取最久
+     ============================================================ */
+  function pickHero() {
+    var highPri = TODOS.filter(function (t) { return t.urgency === 2 && !t.overdue; })
+      .sort(function (a, b) { return a.remainHours - b.remainHours; });
+    if (highPri.length) return highPri[0];
+    return TODOS.slice().sort(function (a, b) { return a.remainHours - b.remainHours; })[0];
+  }
+  var HERO = pickHero();
+
+  /* ============================================================
+     渲染：最紧急大卡
+     ============================================================ */
+  function renderHero() {
+    var ri = remainInfo(HERO);
+    document.getElementById("heroBox").innerHTML =
+      '<div class="hero" onclick="openTask(' + HERO.id + ')">' +
+        '<div class="hero-top">' +
+          '<span class="hero-badge">⚡ 最要紧</span>' +
+          '<span class="hero-src">' + esc(HERO.source) + ' · ' + (HERO.mode === "站内" ? "中台流程" : "外部系统") + '</span>' +
+        '</div>' +
+        '<h2 class="hero-title">' + esc(HERO.title) + '</h2>' +
+        '<div class="hero-meta">' +
+          '<span>' + esc(HERO.submitter) + '</span><span class="sep">·</span><span>' + esc(HERO.time) + '</span>' +
+          '<span class="hero-timer ' + ri.cls + '" style="margin-left:auto">⏰ ' + ri.text + '</span>' +
+        '</div>' +
+        '<div class="hero-actions">' +
+          '<button class="hero-btn" onclick="event.stopPropagation();openTask(' + HERO.id + ')">立即处理</button>' +
+          '<button class="hero-btn-ghost" onclick="event.stopPropagation();snoozeById(' + HERO.id + ')">稍后</button>' +
+        '</div>' +
+      '</div>';
+
+    /* 底部固定行动栏同步 Hero（显隐由滚动控制，见 bindActionBar） */
+    document.getElementById("abTitle").textContent = HERO.title;
+    document.getElementById("abSub").textContent = "⏰ " + ri.text + " · " + HERO.source;
+  }
+
+  /* ============================================================
+     渲染：AI 简报（可展开）
+     ============================================================ */
+  function renderBrief() {
+    var overdue = TODOS.filter(function (t) { return t.overdue; })
+      .sort(function (a, b) { return a.remainHours - b.remainHours; })[0];
+    var line =
+      esc(MOCK.user.name) + "，今天有 <b>2 件事</b>要尽快处理：" +
+      "「" + esc(shortTitle(HERO.title)) + "」<span class=\"em\">" + remainInfo(HERO).text + "</span>" +
+      (overdue ? "，以及「" + esc(shortTitle(overdue.title)) + "」<span class=\"em\">" + relDays(overdue) + "</span>。" : "。") +
+      "其余 " + Math.max(TODOS.length - 2, 0) + " 件可以晚点看。";
+    document.getElementById("briefLine").innerHTML = line;
+
+    var items = TODOS.filter(function (t) { return t.urgency >= 1; })
+      .sort(function (a, b) { return (b.urgency - a.urgency) || (a.remainHours - b.remainHours); })
+      .slice(0, 4);
+    document.getElementById("briefMore").innerHTML =
+      items.map(function (t, i) {
+        var ri = remainInfo(t);
+        return '<div class="bm-item"><span class="n">' + (i + 1) + '</span>' +
+          '<div><b style="color:var(--text-primary)">' + esc(shortTitle(t.title)) + '</b> ' +
+          '<span style="color:' + (ri.cls === "danger" ? "var(--accent)" : ri.cls === "warn" ? "var(--accent-warm)" : "var(--text-weak)") + ';font-weight:600">' + ri.text + '</span>' +
+          '<div style="margin-top:2px">来源 ' + esc(t.source) + ' · ' + esc(t.submitter) + '</div></div></div>';
+      }).join("") +
+      '<div class="brief-foot">规则引擎：紧迫度与时限排序 · GET /v1/portal/brief（source=rule） · 点按卡片可收起</div>';
+  }
+  function shortTitle(t) {
+    return String(t).replace(/【[^】]*】/g, "").trim();
+  }
+  function toggleBrief() {
+    var c = document.getElementById("briefCard");
+    var open = c.classList.toggle("open");
+    document.getElementById("briefToggle").textContent = open ? "收起 ▴" : "展开 ▾";
+  }
+
+  /* ============================================================
+     渲染：意图胶囊
+     ============================================================ */
+  function renderIntents() {
+    var list = getActiveIntents();
+    document.getElementById("intentScroll").innerHTML = list.map(function (it, i) {
+      return '<button class="intent' + (i === 0 ? " hot" : "") + '" onclick="useIntentKey(\'' + esc(it.key) + '\')">' +
+        '<span class="ic">' + (it.icon || "✨") + '</span>' + esc(it.name) + '</button>';
+    }).join("");
+  }
+  function useIntentKey(key) {
+    var it = getActiveIntents().filter(function (x) { return x.key === key; })[0];
+    if (!it) return;
+    if (window.MOCK && MOCK.navigateIntentJump && MOCK.navigateIntentJump(it)) return;
+    if (it.kind === "sso") {
+      toast("SSO 直达「" + (it.app || it.name) + "」（原型演示）");
+      return;
+    }
+    if (it.key === "launch_approval" || (it.bizType && /approval|leave|seal|find_person/.test(it.bizType))) {
+      toast("意图「" + it.name + "」→ 已按规则预填，请在 PC 端或审批中心提交（V1.5 方案 A）");
+      return;
+    }
+    toast("意图「" + it.name + "」→ " + (it.sub || "执行中"));
+  }
+
+  /* ============================================================
+     渲染：时间轴流（紧迫度分组 + 权重递减）
+     —— 今天必须做组剔除 Hero，避免与首屏大卡重复
+     ============================================================ */
+  function sortedByUrgency(list) {
+    return list.slice().sort(function (a, b) {
+      var ao = a.overdue ? 0 : 1, bo = b.overdue ? 0 : 1;
+      return (ao - bo) || (b.urgency - a.urgency) || (a.remainHours - b.remainHours);
+    });
+  }
+  function rowHtml(t) {
+    var ri = remainInfo(t);
+    var dotCls = t.urgency === 2 ? "r-dot-urgent" : t.urgency === 1 ? "r-dot-important" : "r-dot-normal";
+    return '' +
+      '<div class="swipe" data-id="' + t.id + '">' +
+        '<div class="swipe-bg">' +
+          '<span class="swipe-left-bg"></span><span class="swipe-right-bg"></span>' +
+        '</div>' +
+        '<div class="swipe-bg">' +
+          '<span class="sb-left">⟳ 稍后提醒</span>' +
+          '<span class="sb-right" style="margin-left:auto">✓ 标记完成</span>' +
+        '</div>' +
+        '<div class="row" data-id="' + t.id + '">' +
+          '<div class="r-top">' +
+            '<span class="r-dot ' + dotCls + '"></span>' +
+            '<span class="r-title">' + esc(t.title) + '</span>' +
+            '<span class="r-src">' + esc(t.source) + '</span>' +
+          '</div>' +
+          '<div class="r-sub">' +
+            esc(t.submitter) + '<span class="sep">·</span>' + esc(t.time) +
+            '<span class="r-timer ' + ri.cls + '">⏰ ' + ri.text + '</span>' +
+          '</div>' +
+          '<button class="r-go" onclick="event.stopPropagation();openTask(' + t.id + ')">' +
+            (t.mode === "站内" ? "去审批" : "去处理") + ' →</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* 分组口径与 PC 端统一（UIUX §5.3 权重表 + R-3 裁定）：
+     ① 今天必须做：urgency===2 或 overdue 或 remainHours ≤ URGENT_HOURS
+     ② 本周待办  ：remainHours ≤ WEEK_HOURS 且未落入上一组
+     ③ 知悉即可  ：其余（兜底） */
+  var URGENT_HOURS = 4;
+  var WEEK_HOURS = 168;
+  function mobileGroupOf(t) {
+    if (t.urgency === 2 || t.overdue || t.remainHours <= URGENT_HOURS) return "today";
+    if (t.remainHours <= WEEK_HOURS) return "week";
+    return "know";
+  }
+  function renderLists() {
+    var rest = TODOS.filter(function (t) { return t.id !== HERO.id; });
+    var now = sortedByUrgency(rest.filter(function (t) { return mobileGroupOf(t) === "today"; }));
+    var week = sortedByUrgency(rest.filter(function (t) { return mobileGroupOf(t) === "week"; }));
+    var know = sortedByUrgency(rest.filter(function (t) { return mobileGroupOf(t) === "know"; }));
+
+    fill("listNow", now, "nowEmpty");
+    fill("listWeek", week, "weekEmpty");
+    fill("listKnow", know, "knowEmpty");
+
+    document.getElementById("cntNow").textContent = now.length + " 件";
+    document.getElementById("cntWeek").textContent = week.length + " 件";
+    document.getElementById("cntKnow").textContent = know.length + " 件";
+
+    document.getElementById("greetSub").textContent =
+      "今天有 " + TODOS.length + " 条待办 · " + (TODOS.filter(function (t) { return t.urgency === 2; }).length) + " 件要尽快处理";
+
+    bindSwipes();
+  }
+  function fill(boxId, list, emptyId) {
+    var box = document.getElementById(boxId);
+    if (!list.length) {
+      box.innerHTML = '<div class="group-empty" id="' + emptyId + '">' +
+        (boxId === "listNow" ? "🎉 今天必须做的已处理完，保持节奏" : "暂无事项") + '</div>';
+      return;
+    }
+    box.innerHTML = list.map(rowHtml).join("");
+  }
+
+  /* ============================================================
+     手势①：待办左右滑（右滑完成 / 左滑稍后）
+     —— 同时支持鼠标（演示）与触摸（真机）
+     ============================================================ */
+  function bindSwipes() {
+    Array.prototype.forEach.call(document.querySelectorAll(".swipe"), attachSwipe);
+  }
+  function pointOf(e) {
+    if (e.touches && e.touches.length) return e.touches[0].clientX;
+    if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX;
+    return e.clientX;
+  }
+  function attachSwipe(el) {
+    var row = el.querySelector(".row");
+    var sbLeft = el.querySelector(".sb-left");
+    var sbRight = el.querySelector(".sb-right");
+    var startX = 0, dx = 0, dragging = false, moved = false;
+    var TH = 66; // 触发阈值
+
+    function down(e) {
+      startX = pointOf(e);
+      dx = 0; dragging = true; moved = false;
+      row.style.transition = "none";
+    }
+    function move(e) {
+      if (!dragging) return;
+      dx = pointOf(e) - startX;
+      if (Math.abs(dx) > 6) moved = true;
+      var x = Math.max(-110, Math.min(110, dx));
+      row.style.transform = "translateX(" + x + "px)";
+      if (x > 0) { sbLeft.style.opacity = Math.min(x / TH, 1); sbRight.style.opacity = 0; }
+      else { sbRight.style.opacity = Math.min(-x / TH, 1); sbLeft.style.opacity = 0; }
+      if (moved && e.cancelable) e.preventDefault();
+    }
+    function up() {
+      if (!dragging) return;
+      dragging = false;
+      row.style.transition = "transform .18s ease";
+      if (dx > TH) {
+        row.style.transform = "translateX(115%)";
+        setTimeout(function () { completeById(el.getAttribute("data-id")); }, 200);
+      } else if (dx < -TH) {
+        row.style.transform = "translateX(-115%)";
+        setTimeout(function () { snoozeById(Number(el.getAttribute("data-id"))); }, 200);
+      } else {
+        row.style.transform = "translateX(0)";
+        sbLeft.style.opacity = 0; sbRight.style.opacity = 0;
+      }
+      dx = 0;
+    }
+    /* 点按（非滑动）→ 打开任务 */
+    function clickRow() { if (!moved) openTask(Number(el.getAttribute("data-id"))); }
+
+    row.addEventListener("mousedown", down);
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+    row.addEventListener("touchstart", down, { passive: true });
+    row.addEventListener("touchmove", move, { passive: false });
+    row.addEventListener("touchend", up);
+    row.addEventListener("click", clickRow);
+  }
+
+  /* ============================================================
+     手势②：顶部下拉刷新简报（V1.5 无 AI 助手）
+     ============================================================ */
+  (function bindPull() {
+    var scr = document.getElementById("s-home");
+    var wrap = document.getElementById("mWrap");
+    var ind = document.getElementById("pullIndicator");
+    var txt = document.getElementById("pullText");
+    var pulling = false, startY = 0, dist = 0, TH = 60;
+
+    function atTop() { return scr.scrollTop <= 0; }
+    function onRow(e) {
+      /* 手势分工：起手落在可滑待办行上 → 交给「左右滑」，不触发下拉刷新 */
+      var tgt = e.target || (e.touches && e.touches[0] && e.touches[0].target);
+      return !!(tgt && tgt.closest && tgt.closest(".swipe"));
+    }
+    function pdown(e) {
+      if (!atTop() || onRow(e)) return;
+      pulling = true; startY = pointY(e); dist = 0;
+    }
+    function pmove(e) {
+      if (!pulling) return;
+      var d = pointY(e) - startY;
+      if (d <= 0) { resetPull(); return; }
+      dist = Math.min(d * 0.5, 72);
+      wrap.style.transition = "none";
+      wrap.style.transform = "translateY(" + dist + "px)";
+      ind.style.opacity = Math.min(dist / TH, 1);
+      txt.textContent = dist >= TH ? "松开刷新简报" : "下拉刷新今日简报";
+      ind.classList.toggle("ready", dist >= TH);
+      if (e.cancelable) e.preventDefault();
+    }
+    function pup() {
+      if (!pulling) return;
+      pulling = false;
+      var open = dist >= TH;
+      resetPull();
+      if (open) { refresh(); toast("今日简报已刷新（规则引擎）"); }
+    }
+    function resetPull() {
+      pulling = false; dist = 0;
+      wrap.style.transition = "transform .18s ease";
+      wrap.style.transform = "translateY(0)";
+      ind.style.opacity = 0;
+      ind.classList.remove("ready");
+    }
+    function pointY(e) {
+      if (e.touches && e.touches.length) return e.touches[0].clientY;
+      if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
+      return e.clientY;
+    }
+    scr.addEventListener("mousedown", pdown);
+    document.addEventListener("mousemove", pmove);
+    document.addEventListener("mouseup", pup);
+    scr.addEventListener("touchstart", pdown, { passive: true });
+    scr.addEventListener("touchmove", pmove, { passive: false });
+    scr.addEventListener("touchend", pup);
+  })();
+
+  /* ============================================================
+     任务处理（抽屉）
+     ============================================================ */
+  var currentTask = null;
+  function openTask(id) {
+    var t = TODOS.filter(function (x) { return x.id === id; })[0];
+    if (!t) { toast("该待办已处理完成"); return; }
+    currentTask = t;
+    /* 复位抽屉头部（可能被公告详情复用后需还原） */
+    document.querySelector(".sheet-task .sh-t").textContent = "待办处理";
+    document.querySelector(".sheet-task .sh-ic").textContent = "📋";
+    var ri = remainInfo(t);
+    document.getElementById("taskHeadSub").textContent =
+      t.mode === "站内" ? "中台自有流程 · 可站内直接办理" : "外部系统 · SSO 免登直达";
+
+    document.getElementById("taskBody").innerHTML =
+      '<div class="task-timer-box ' + (ri.cls === "calm" ? "calm" : "") + '">⏰ ' + ri.text +
+        (t.overdue ? '　（超时将升级提醒上级）' : '') + '</div>' +
+      '<h3 class="task-title">' + esc(t.title) + '</h3>' +
+      '<dl style="margin:0">' +
+        '<div class="kv"><dt>来源系统</dt><dd>' + esc(t.source) + '</dd></div>' +
+        '<div class="kv"><dt>提交人</dt><dd>' + esc(t.submitter) + '</dd></div>' +
+        '<div class="kv"><dt>提交时间</dt><dd>' + esc(t.time) + '</dd></div>' +
+        '<div class="kv"><dt>处理方式</dt><dd>' + (t.mode === "站内" ? "站内办理（同意 / 驳回）" : "跳转原系统处理（带 SSO）") + '</dd></div>' +
+      '</dl>';
+
+    var actions;
+    if (t.mode === "站内") {
+      actions =
+        '<button class="btn" onclick="rejectTask()">驳回</button>' +
+        '<button class="btn btn-primary" onclick="completeById(' + t.id + ')">同意</button>';
+    } else {
+      actions =
+        '<button class="btn" onclick="toast(\'已向当前处理人发送催办（24h 去重）\')">催办</button>' +
+        '<button class="btn btn-primary" onclick="jumpTask()">去源系统处理</button>';
+    }
+    document.getElementById("taskActions").innerHTML = actions;
+    openSheet("taskSheet");
+  }
+  function rejectTask() {
+    var v = prompt("请输入驳回意见（必填）：", "");
+    if (v === null) return;
+    if (!String(v).trim()) { toast("驳回失败：驳回意见必填"); return; }
+    var t = currentTask;
+    removeTodo(t.id);
+    closeAllSheets();
+    toast("已驳回「" + shortTitle(t.title) + "」，意见：" + String(v).slice(0, 12) + "…（写留痕）");
+  }
+  function jumpTask() {
+    closeAllSheets();
+    toast("新窗口打开 " + currentTask.source + " 处理页（SSO 免登直达）");
+  }
+
+  /* ============================================================
+     待办状态变更：完成 / 稍后
+     ============================================================ */
+  function completeById(id) {
+    id = Number(id);
+    var t = TODOS.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    removeTodo(id);
+    closeAllSheets();
+    toast("已完成「" + shortTitle(t.title) + "」（写留痕，与 PC 状态一致）");
+  }
+  function snoozeById(id) {
+    id = Number(id);
+    var t = TODOS.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    t.remainHours += 4;
+    t.overdue = t.remainHours < 0;
+    refresh();
+    toast("已稍后提醒「" + shortTitle(t.title) + "」：4 小时后再提示");
+  }
+  function removeTodo(id) {
+    TODOS = TODOS.filter(function (x) { return x.id !== id; });
+    if (HERO && HERO.id === id) HERO = pickHero();
+    refresh();
+    renderTodoView();
+  }
+
+  /* ============================================================
+     渲染：应用收纳（降级）
+     ============================================================ */
+  function appHtml(a) {
+    return '<div class="a" onclick="toast(\'打开 ' + esc(a.name) + '（SSO 免登）\')">' +
+      '<div class="ic" style="background:' + (a.color || "#615d59") + '22;color:' + (a.color || "#615d59") + '">' + (a.icon || "🧩") + '</div>' +
+      '<div class="nm">' + esc(String(a.name).split(" ")[0]) + '</div></div>';
+  }
+  function renderApps() {
+    var sorted = APP_LIST.slice().sort(function (a, b) { return (b.freq || 0) - (a.freq || 0); });
+    document.getElementById("appsGrid").innerHTML = sorted.slice(0, 8).map(appHtml).join("");
+    document.getElementById("appsGridFull").innerHTML = sorted.map(appHtml).join("");
+  }
+  function toggleApps() {
+    document.getElementById("appsFold").classList.toggle("open");
+  }
+
+  /* ============================================================
+     渲染：我的订阅（规格 3 · 移动端）
+     —— 有订阅：横向滚动订阅小卡；点击 → SSO 直达（移动端既有做法用 toast）
+     —— 无订阅：整段 hidden（不占位）
+     ============================================================ */
+  function renderSubs() {
+    var box = document.getElementById("subsBox");
+    var wrap = document.getElementById("subScroll");
+    var subs = appsOfSubs();
+    if (!subs.length) { wrap.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    wrap.innerHTML = subs.map(function (a) {
+      return '<button class="sub-card" onclick="openSubApp(\'' + esc(a.name) + '\')">' +
+        '<span class="sc-ic">' + (a.icon || "🧩") + '</span>' +
+        '<span class="sc-nm">' + esc(String(a.name).split(" ")[0]) + '</span>' +
+        '</button>';
+    }).join("");
+  }
+  function openSubApp(name) {
+    toast("打开 " + name + "（SSO 免登直达）");
+  }
+
+  /* ============================================================
+     页面入口卡（决议 #5b · 移动端）
+     —— 规格 C：窄屏不渲染 iframe，改为「页面入口卡」→ 全屏 / 新标签页打开（#5 语义）
+     —— 数据源：与 PC 同源（localStorage key: bmp_embed_cards，PC 端写入的嵌入卡片）
+     —— 兜底：无 PC 存档时用预置演示入口（保证移动端可见该能力）
+     —— 显隐：无入口则整段不占位（沿用移动端「无则不占位」既有做法）
+     ============================================================ */
+  var EMBED_KEY = "bmp_embed_cards";
+  var EMBED_FALLBACK = [
+    { title: "经营驾驶舱（领导视角）", icon: "🖥", url: "https://dashboard.lubon.local/ceo" },
+    { title: "部门数据看板",          icon: "📊", url: "https://bi.lubon.local/dept" }
+  ];
+  function loadEmbedEntries() {
+    try {
+      var raw = localStorage.getItem(EMBED_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length) {
+          var list = arr.filter(function (c) { return c && c.visible !== false; }).map(function (c) {
+            var p = c.params || {};
+            return { title: p.title || c.name || "嵌入页面", icon: p.icon || "🖥", url: p.url || "" };
+          }).filter(function (c) { return c.url; });
+          if (list.length) return list;
+        }
+      }
+    } catch (e) { /* 解析失败 → 兜底演示入口 */ }
+    return EMBED_FALLBACK.slice();
+  }
+  function renderEmbeds() {
+    var box = document.getElementById("embedsBox");
+    var wrap = document.getElementById("embScroll");
+    var list = loadEmbedEntries();
+    if (!list.length) { wrap.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    wrap.innerHTML = list.map(function (c, i) {
+      return '<div class="emb-card">' +
+        '<div class="ec-top">' +
+          '<span class="ec-ic">' + (c.icon || "🖥") + '</span>' +
+          '<div class="ec-tt"><div class="ec-nm" title="' + esc(c.title) + '">' + esc(c.title) + '</div>' +
+            '<div class="ec-host">' + esc(hostOf(c.url)) + '</div></div>' +
+        '</div>' +
+        '<div class="ec-note">大屏 / 看板：移动端窄屏不适合内嵌，点「打开」全屏查看（决议 #5）。</div>' +
+        '<button class="ec-open" onclick="openEmbedEntry(' + i + ')">打开 →</button>' +
+      '</div>';
+    }).join("");
+  }
+  function hostOf(url) {
+    try { return new URL(url).host; } catch (e) { return String(url || ""); }
+  }
+  /* 打开：移动端不内嵌 → 全屏 / 新标签页打开（严格 #5 语义） */
+  function openEmbedEntry(i) {
+    var list = loadEmbedEntries();
+    var c = list[i];
+    if (!c) return;
+    toast("全屏打开「" + c.title + "」（决议 #5 · 新标签页 / 全屏，不在首页内嵌）");
+  }
+
+  /* ============================================================
+     抽屉通用
+     ============================================================ */
+  function openSheet(id) {
+    document.getElementById("mask").classList.add("open");
+    document.getElementById(id).classList.add("open");
+  }
+  function closeAllSheets() {
+    document.getElementById("mask").classList.remove("open");
+    Array.prototype.forEach.call(document.querySelectorAll(".sheet"), function (s) { s.classList.remove("open"); });
+  }
+
+  /* 演示用 AI 助手（与 PC home-v2 同源配置 · mock.js） */
+  var mAiBooted = false;
+  function mAiCfg() {
+    return MOCK.getPortalAiConfig ? MOCK.getPortalAiConfig() : { enabled: false, aiAvailable: true };
+  }
+  function mAiAppend(role, text) {
+    var box = document.getElementById("mAiBody");
+    if (!box) return;
+    var el = document.createElement("div");
+    el.className = "msg " + (role === "user" ? "user" : "ai");
+    el.textContent = text;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+  function mAiResetThread(cfg) {
+    var box = document.getElementById("mAiBody");
+    if (box) box.innerHTML = "";
+    mAiAppend("ai", cfg.welcomeText || MOCK.portalAiAssistantDefault.welcomeText);
+    if (cfg.aiAvailable === false) {
+      mAiAppend("ai", cfg.unavailableMessage || MOCK.portalAiAssistantDefault.unavailableMessage);
+    }
+  }
+  function applyMobileAiConfig(resetThread) {
+    var cfg = mAiCfg();
+    var wrap = document.getElementById("mAiFabWrap");
+    var sub = document.getElementById("mAiRouteSub");
+    var inp = document.getElementById("mAiInput");
+    var sendBtn = document.getElementById("mAiSendBtn");
+    var quick = document.getElementById("mAiQuick");
+    if (wrap) wrap.hidden = cfg.enabled === false;
+    if (sub) sub.textContent = (cfg.modelRouteLabel || "模型路由 V2") + " · 演示";
+    if (inp) {
+      inp.placeholder = cfg.inputPlaceholder || MOCK.portalAiAssistantDefault.inputPlaceholder;
+      inp.disabled = cfg.aiAvailable === false;
+    }
+    if (sendBtn) sendBtn.disabled = cfg.aiAvailable === false;
+    if (quick) quick.style.display = cfg.aiAvailable === false ? "none" : "";
+    if (resetThread || !mAiBooted) mAiResetThread(cfg);
+    mAiBooted = true;
+  }
+  function openMobileAiAssistant() {
+    var cfg = mAiCfg();
+    if (cfg.enabled === false) {
+      toast("AI 助手未启用。可在管理端 portal-ai-assistant 开启。");
+      return;
+    }
+    applyMobileAiConfig(false);
+    openSheet("aiSheet");
+    var inp = document.getElementById("mAiInput");
+    if (inp && !inp.disabled) setTimeout(function () { inp.focus(); }, 120);
+  }
+  function mAiSend() {
+    var cfg = mAiCfg();
+    var inp = document.getElementById("mAiInput");
+    if (!inp || cfg.aiAvailable === false) return;
+    var text = (inp.value || "").trim();
+    if (!text) return;
+    mAiAppend("user", text);
+    inp.value = "";
+    setTimeout(function () {
+      var reply = MOCK.portalAiMockReply ? MOCK.portalAiMockReply(text, cfg) : "（mock 未加载）";
+      mAiAppend("ai", reply);
+    }, 420);
+  }
+  function mAiQuickSend(text) {
+    var inp = document.getElementById("mAiInput");
+    if (inp && !inp.disabled) inp.value = text;
+    mAiSend();
+  }
+  var mAiInputEl = document.getElementById("mAiInput");
+  if (mAiInputEl) {
+    mAiInputEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); mAiSend(); }
+    });
+  }
+  window.addEventListener("bmp:portal-ai-config-updated", function () { applyMobileAiConfig(true); });
+
+  /* ============================================================
+     切屏机制（保留：go / goBack，兼容既有容器导航）
+     ============================================================ */
+  var navStack = [];
+  function go(id, title, push) {
+    push = push !== false;
+    var cur = document.querySelector(".screen.active");
+    if (push && cur && cur.id !== id) navStack.push({ id: cur.id, title: document.getElementById("navTitle").textContent });
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    var el = document.getElementById(id);
+    if (el) { el.classList.add("active"); el.scrollTop = 0; }
+    document.getElementById("navTitle").textContent = title;
+    document.getElementById("navBack").style.visibility = id === "s-home" ? "hidden" : "visible";
+    /* 全局导航：同步 Tab 激活态（仅五项主屏参与高亮） */
+    syncTabActive(id);
+    /* 进入对应屏时按需重渲染，保证数据最新 */
+    if (id === "s-todos") renderTodoView();
+    if (id === "s-approval") renderApprovalView();
+    if (id === "s-messages") renderMessageView();
+    if (id === "s-me") renderMeView();
+    /* 行动栏只服务于首页最紧急项：离开首页立即收起 */
+    if (id !== "s-home") document.getElementById("actionBar").classList.remove("show");
+  }
+  function syncTabActive(id) {
+    Array.prototype.forEach.call(document.querySelectorAll(".tab-item"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === id);
+    });
+  }
+  function goBack() {
+    var prev = navStack.pop();
+    if (prev) go(prev.id, prev.title, false);
+    else go("s-home", "麓邦业务中台", false);
+  }
+  function replayLogin() {
+    var fl = document.getElementById("freeLogin");
+    fl.classList.add("show");
+    setTimeout(function () { fl.classList.remove("show"); toast("免登成功：已静默换取 JWT（jti 绑定会话）"); }, 1400);
+  }
+
+  /* ============================================================
+     通知 Banner（移动端 · 单行紧凑）
+     —— 数据：页面内局部扩展 MOCK.notices（不改 mock.js）
+     —— 显隐：有「已发布且未过期」条目才渲染；无条目不占位
+     —— 多条时标题交替轮播（无箭头，点击展开详情）；
+     —— 关闭：会话内 sessionStorage 记录（点右侧 ✕，不冒泡到整体点击）
+     ============================================================ */
+  var NOTICE_CLOSED_KEY = "bmp_closed_notices";
+  var noticeEmptyDemo = false;
+  var nbList = [], nbIndex = 0, nbTimer = null;
+
+  function closedNoticeIds() {
+    try { return JSON.parse(sessionStorage.getItem(NOTICE_CLOSED_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function addClosedNotice(id) {
+    var list = closedNoticeIds();
+    if (list.indexOf(id) === -1) list.push(id);
+    try { sessionStorage.setItem(NOTICE_CLOSED_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function buildMobileNotices() {
+    var base = (window.MOCK && Array.isArray(MOCK.notices)) ? MOCK.notices : [];
+    var now = Date.now();
+    var META = {
+      1: { status: "published", type: "通知", expireHours: 7 * 24 },
+      2: { status: "published", type: "新闻", expireHours: 30 * 24 },
+      3: { status: "published", type: "通知", expireHours: 3 * 24 }
+    };
+    var extra = [
+      { id: 90, title: "【草稿】关于调整班车时刻的意见征集", dept: "行政部", time: "09-22 11:00", top: false, body: "未发布，不应出现在 Banner。" },
+      { id: 91, title: "【已过期】中秋节活动报名已结束", dept: "工会", time: "09-10 09:00", top: false, body: "已过期，不应出现在 Banner。" }
+    ];
+    return base.concat(extra).map(function (n) {
+      var meta = META[n.id] || { status: n.id === 90 ? "draft" : "published", type: "通知", expireHours: n.id === 91 ? -24 : 30 * 24 };
+      return { id: n.id, title: n.title, dept: n.dept, time: n.time, top: !!n.top, body: n.body || "",
+        status: meta.status, type: meta.type, expireAt: now + meta.expireHours * 3600 * 1000 };
+    });
+  }
+  function visibleNotices() {
+    if (noticeEmptyDemo) return [];
+    var now = Date.now(), closed = closedNoticeIds();
+    return buildMobileNotices()
+      .filter(function (n) { return n.status === "published" && n.expireAt > now && closed.indexOf(n.id) === -1; })
+      .sort(function (a, b) { return (b.top - a.top) || (b.id - a.id); });
+  }
+  function renderNoticeBanner() {
+    var el = document.getElementById("noticeBanner");
+    nbList = visibleNotices();
+    if (!nbList.length) {
+      el.classList.remove("on");
+      el.innerHTML = "";
+      if (nbTimer) { clearInterval(nbTimer); nbTimer = null; }
+      return;
+    }
+    if (nbIndex >= nbList.length) nbIndex = 0;
+    el.classList.add("on");
+    drawNotice();
+    resetNoticeTimer();
+  }
+  function drawNotice() {
+    var el = document.getElementById("noticeBanner");
+    var n = nbList[nbIndex];
+    el.innerHTML =
+      '<span class="nb-ic">📢</span>' +
+      '<span class="nb-tag ' + (n.top ? "pin" : "") + '">' + (n.top ? "置顶" : esc(n.type || "通知")) + '</span>' +
+      '<span class="nb-title">' + esc(n.title) + '</span>' +
+      (nbList.length > 1 ? '<span class="nb-count">' + (nbIndex + 1) + '/' + nbList.length + '</span>' : '') +
+      '<span class="nb-go">›</span>' +
+      '<button class="nb-close" title="关闭本条" onclick="event.stopPropagation();closeNotice(' + n.id + ')">✕</button>';
+  }
+  function resetNoticeTimer() {
+    if (nbTimer) clearInterval(nbTimer);
+    if (nbList.length <= 1) { nbTimer = null; return; }
+    nbTimer = setInterval(function () { nbIndex = (nbIndex + 1) % nbList.length; drawNotice(); }, 6000);
+  }
+  function closeNotice(id) {
+    addClosedNotice(id);
+    nbIndex = 0;
+    renderNoticeBanner();
+    toast("已关闭该公告（本次会话不再显示）");
+  }
+  function openNoticeBanner() {
+    if (!nbList.length) return;
+    var n = nbList[nbIndex];
+    closeAllSheets();
+    var body = document.getElementById("taskBody");
+    document.getElementById("taskHeadSub").textContent = "公司公告 · " + (n.dept || "行政部");
+    document.querySelector(".sheet-task .sh-t").textContent = "公告详情";
+    document.querySelector(".sheet-task .sh-ic").textContent = "📢";
+    body.innerHTML =
+      '<span class="nb-tag ' + (n.top ? "pin" : "") + '" style="align-self:flex-start">' + (n.top ? "置顶" : esc(n.type || "通知")) + '</span>' +
+      '<h3 class="task-title">' + esc(n.title) + '</h3>' +
+      '<p style="margin:0;font-size:14px;line-height:1.7;color:var(--text-secondary)">' + esc(n.body) + '</p>' +
+      '<div style="margin-top:12px;font-size:12px;color:var(--text-weak)">发布：' + esc(n.dept || "") + ' · ' + esc(n.time || "") + '</div>';
+    document.getElementById("taskActions").innerHTML =
+      '<button class="btn" onclick="closeAllSheets()">关闭</button>' +
+      '<button class="btn btn-primary" onclick="toast(\'已标记为已读（原型演示）\');closeAllSheets()">我知道了</button>';
+    openSheet("taskSheet");
+  }
+  function toggleNoticeDemo() {
+    noticeEmptyDemo = !noticeEmptyDemo;
+    var link = document.getElementById("noticeDemoLink");
+    if (link) link.textContent = noticeEmptyDemo ? "📢 恢复公告显示" : "📢 模拟无公告（Banner 不占位）";
+    renderNoticeBanner();
+    toast(noticeEmptyDemo ? "已模拟「无公告」：Banner 完全不占位" : "已恢复公告显示");
+  }
+
+  /* ============================================================
+     屏 2：待办中心（三视图）—— 待办 / 已办 / 我发起的
+     —— 数据源：待办=页面 TODOS（与首页同源）；已办/我发起的=MOCK 镜像
+     —— 列表卡触控 ≥44px；点击进入既有 taskSheet 详情
+     ============================================================ */
+  var todoView = "todo";
+  function switchTodoView(v) {
+    todoView = v;
+    Array.prototype.forEach.call(document.querySelectorAll("#todoSeg .sg"), function (b, i) {
+      b.classList.toggle("active", ["todo", "done", "mine"][i] === v);
+    });
+    renderTodoView();
+  }
+  function renderTodoView() {
+    var box = document.getElementById("todoListView");
+    if (!box) return;
+    var list = sortedByUrgency(TODOS);
+    if (todoView === "todo") {
+      box.innerHTML = list.length ? list.map(function (t) {
+        var ri = remainInfo(t);
+        var dot = t.urgency === 2 ? "r-dot-urgent" : t.urgency === 1 ? "r-dot-important" : "r-dot-normal";
+        return '<div class="m-card" onclick="openTask(' + t.id + ')">' +
+          '<div class="mc-top"><span class="r-dot ' + dot + '"></span>' +
+            '<span class="mc-title">' + esc(t.title) + '</span>' +
+            '<span class="r-src">' + esc(t.source) + '</span></div>' +
+          '<div class="mc-sub">' + esc(t.submitter) + '<span class="sep">·</span>' + esc(t.time) +
+            '<span class="mc-timer ' + ri.cls + '">⏰ ' + ri.text + '</span></div>' +
+          '<div class="mc-foot"><button class="mc-go" onclick="event.stopPropagation();openTask(' + t.id + ')">' +
+            (t.mode === "站内" ? "去审批" : "去处理") + ' →</button></div></div>';
+      }).join("") : '<div class="group-empty">🎉 待办已全部处理完成</div>';
+      return;
+    }
+    var src = todoView === "done" ? (MOCK.todosDone || []) : (MOCK.todosInitiated || []);
+    box.innerHTML = src.length ? src.map(function (t) {
+      var right = todoView === "done"
+        ? '<span class="mc-timer ' + (/驳回|失败/.test(t.result) ? "danger" : "calm") + '">' + esc(t.result) + '</span>'
+        : '<span class="mc-timer ' + (/已完成/.test(t.progress) ? "calm" : "warn") + '">' + esc(t.progress) + '</span>';
+      return '<div class="m-card" onclick="toast(\'' + esc(t.title) + '（' + (todoView === "done" ? "已办" : "我发起的") + '·只读，与 PC 一致）\')">' +
+        '<div class="mc-top"><span class="mc-title">' + esc(t.title) + '</span>' +
+          '<span class="r-src">' + esc(t.source) + '</span></div>' +
+        '<div class="mc-sub">' + esc(t.time) +
+          (t.node && t.node !== "—" ? '<span class="sep">·</span>当前节点：' + esc(t.node) : '') +
+          right + '</div></div>';
+    }).join("") : '<div class="group-empty">暂无记录</div>';
+  }
+
+  /* ============================================================
+     屏 3：审批中心 —— 审批任务列表（站内可办 / 跳转），复用 approvalCenter 数据
+     —— 点击进入既有 taskSheet 详情（站内可同意/驳回）
+     ============================================================ */
+  function renderApprovalView() {
+    var box = document.getElementById("approvalView");
+    if (!box) return;
+    var list = (MOCK.workflow && MOCK.workflow.approvalCenter) ? MOCK.workflow.approvalCenter.todo : [];
+    document.getElementById("apprNote").textContent = list.length + " 项待办 · 站内可直接办理";
+    if (!list.length) { box.innerHTML = '<div class="group-empty">🎉 暂无待办审批</div>'; return; }
+    var sorted = list.slice().sort(function (a, b) { return (a.overdue === b.overdue) ? (b.urgency - a.urgency) : (a.remainHours - b.remainHours); });
+    box.innerHTML = sorted.map(function (t) {
+      var ri = remainHoursInfo(t.remainHours);
+      var dot = t.urgency === 2 ? "r-dot-urgent" : t.urgency === 1 ? "r-dot-important" : "r-dot-normal";
+      var modeTag = '<span class="r-src">' + (t.mode === "站内" ? "站内可办" : "跳转源系统") + '</span>';
+      return '<div class="m-card" onclick="openApprovalFromCenter(\'' + esc(t.id) + '\')">' +
+        '<div class="mc-top"><span class="r-dot ' + dot + '"></span>' +
+          '<span class="mc-title">' + esc(t.title) + '</span>' + modeTag + '</div>' +
+        '<div class="mc-sub">' + esc(t.sourceSystem) + '<span class="sep">·</span>' + esc(t.submitter) +
+          '<span class="sep">·</span>' + esc(t.time) +
+          '<span class="mc-timer ' + ri.cls + '">⏰ ' + ri.text + '</span></div>' +
+        '<div class="mc-foot"><button class="mc-go" onclick="event.stopPropagation();openApprovalFromCenter(\'' + esc(t.id) + '\')">' +
+          (t.mode === "站内" ? "去审批" : "去源系统") + ' →</button></div></div>';
+    }).join("");
+  }
+  /* 审批中心项的剩余时限（独立于 TODOS 的行内字段，直接吃 remainHours） */
+  function remainHoursInfo(remainHours) {
+    if (remainHours < 0) return { text: "已超时 " + Math.abs(remainHours) + " 小时", cls: "danger" };
+    if (remainHours <= 4) return { text: "还剩 " + remainHours + " 小时", cls: "danger" };
+    if (remainHours <= 24) return { text: "还剩 " + remainHours + " 小时", cls: "warn" };
+    return { text: "还剩 " + remainHours + " 小时", cls: "calm" };
+  }
+  /* 审批中心项 → 既有任务抽屉（站内可办）或跳转提示 */
+  function openApprovalFromCenter(id) {
+    var t = (MOCK.workflow.approvalCenter.todo || []).filter(function (x) { return x.id === id; })[0];
+    if (!t) { toast("该审批已处理"); return; }
+    if (t.mode !== "站内") { toast("跳转 " + t.sourceSystem + " 处理页（SSO 免登直达 · 决议 #5）"); return; }
+    /* 复用 taskSheet：按审批中心项构造只读详情 + 同意/驳回（驳回落回待办处理语义） */
+    currentTask = { id: t.id, title: t.title, source: t.sourceSystem, submitter: t.submitter, time: t.time, mode: "站内", remainHours: t.remainHours, overdue: t.remainHours < 0 };
+    document.querySelector(".sheet-task .sh-t").textContent = "审批办理";
+    document.querySelector(".sheet-task .sh-ic").textContent = "✅";
+    document.getElementById("taskHeadSub").textContent = "中台自有流程 · 可站内直接办理";
+    var ri = remainHoursInfo(t.remainHours);
+    var fdKeys = Object.keys(t.formData || {});
+    document.getElementById("taskBody").innerHTML =
+      '<div class="task-timer-box ' + (ri.cls === "calm" ? "calm" : "") + '">⏰ ' + ri.text + '</div>' +
+      '<h3 class="task-title">' + esc(t.title) + '</h3>' +
+      '<dl style="margin:0">' +
+        '<div class="kv"><dt>来源系统</dt><dd>' + esc(t.sourceSystem) + '</dd></div>' +
+        '<div class="kv"><dt>提交人</dt><dd>' + esc(t.submitter) + '</dd></div>' +
+        '<div class="kv"><dt>提交时间</dt><dd>' + esc(t.time) + '</dd></div>' +
+        (fdKeys.length ? fdKeys.map(function (k) { return '<div class="kv"><dt>' + esc(k) + '</dt><dd>' + esc(t.formData[k]) + '</dd></div>'; }).join("") : '') +
+      '</dl>';
+    document.getElementById("taskActions").innerHTML =
+      '<button class="btn" onclick="rejectApprovalCenter()">驳回</button>' +
+      '<button class="btn btn-primary" onclick="completeApprovalCenter()">同意</button>';
+    openSheet("taskSheet");
+  }
+  function completeApprovalCenter() {
+    var t = currentTask;
+    if (!t) return;
+    var tc = (MOCK.workflow.approvalCenter.todo || []).filter(function (x) { return x.id === t.id; })[0];
+    if (tc) { tc._handled = true; }
+    var box = document.getElementById("approvalView");
+    if (box) {
+      /* 从审批中心列表移除已处理项（镜像数组原地过滤以保留引用） */
+      var arr = MOCK.workflow.approvalCenter.todo;
+      var i = arr.indexOf(tc);
+      if (i >= 0) arr.splice(i, 1);
+    }
+    closeAllSheets();
+    renderApprovalView();
+    renderTabBadges();
+    toast("已同意「" + shortTitle(t.title) + "」（写留痕，与 PC 状态一致）");
+  }
+  function rejectApprovalCenter() {
+    var v = prompt("请输入驳回意见（必填）：", "");
+    if (v === null) return;
+    if (!String(v).trim()) { toast("驳回失败：驳回意见必填"); return; }
+    var t = currentTask;
+    var tc = (MOCK.workflow.approvalCenter.todo || []).filter(function (x) { return x.id === t.id; })[0];
+    if (tc) {
+      var arr = MOCK.workflow.approvalCenter.todo;
+      var i = arr.indexOf(tc);
+      if (i >= 0) arr.splice(i, 1);
+    }
+    closeAllSheets();
+    renderApprovalView();
+    renderTabBadges();
+    toast("已驳回「" + shortTitle(t.title) + "」，意见：" + String(v).slice(0, 12) + "…（写留痕）");
+  }
+
+  /* ============================================================
+     屏 4：消息中心 —— 消息列表（MOCK.messages）+ 公告（MOCK.notices）
+     —— 未读小圆点；点击消息 = 标记已读（会话内）+ 打开详情抽屉
+     ============================================================ */
+  function renderMessageView() {
+    var box = document.getElementById("messageView");
+    if (!box) return;
+    document.getElementById("msgNote").textContent = unreadMsgCount() + " 条未读";
+    var msgs = (MOCK.messages || []).slice().sort(function (a, b) { return (b.top - a.top) || (b.id - a.id); });
+    var notices = MOCK.notices || [];
+    var readIds = readMsgIds();
+    var msgsHtml = msgs.map(function (m) {
+      var unread = m.unread && readIds.indexOf(m.id) === -1;
+      return '<div class="msg-item' + (unread ? " unread" : "") + '" onclick="openMessage(' + m.id + ')">' +
+        '<div class="mi-ic">' + msgCatIcon(m.cat) + '</div>' +
+        '<div class="mi-main">' +
+          '<div class="mi-top"><span class="mi-title">' + esc(m.title) + '</span>' + (unread ? '<span class="mi-dot"></span>' : '') + '</div>' +
+          '<div class="mi-meta"><span>' + esc(m.cat) + '</span><span>·</span><span>' + esc(m.time) + '</span>' +
+            (m.top ? '<span class="nb-tag pin" style="height:16px">置顶</span>' : '') + '</div>' +
+        '</div></div>';
+    }).join("");
+    var noticesHtml = notices.map(function (n) {
+      return '<div class="msg-item" onclick="openNoticeDetail(' + n.id + ')">' +
+        '<div class="mi-ic">📢</div>' +
+        '<div class="mi-main">' +
+          '<div class="mi-top"><span class="mi-title">' + esc(n.title) + '</span>' + (n.top ? '<span class="mi-dot"></span>' : '') + '</div>' +
+          '<div class="mi-meta"><span>' + esc(n.dept) + '</span><span>·</span><span>' + esc(n.time) + '</span>' + (n.read ? '' : '<span class="nb-tag">未读</span>') + '</div>' +
+        '</div></div>';
+    }).join("");
+    box.innerHTML =
+      '<div class="sec-label"><h2>消息</h2><span class="note">' + msgs.length + ' 条</span></div>' +
+      msgsHtml +
+      '<div class="sec-label" style="margin-top:18px"><h2>公告</h2><span class="note">' + notices.length + ' 条</span></div>' +
+      noticesHtml +
+      /* UI-M-04 入口演示：模拟从钉钉/企微消息卡片「查看详情」直接落到消息详情页 */
+      '<div class="demo-hint" style="margin:16px 0 4px;font-size:12px;color:var(--text-weak);line-height:1.7">' +
+        'ℹ 钉钉 / 企微消息卡片的「查看详情」将直达 <span class="mono">/m/messages/:id</span> 落地页（UI-M-04）。' +
+        '<a href="javascript:openMsgLanding(1)" style="color:var(--accent);margin-left:4px">演示：打开消息落地页 →</a>' +
+      '</div>';
+  }
+  function msgCatIcon(cat) {
+    if (/公告/.test(cat)) return "📢";
+    if (/系统/.test(cat)) return "🔧";
+    if (/审批/.test(cat)) return "✅";
+    if (/待办/.test(cat)) return "📝";
+    return "💬";
+  }
+  function openMessage(id) {
+    var m = (MOCK.messages || []).filter(function (x) { return x.id === id; })[0];
+    if (!m) return;
+    markMsgRead(id);
+    renderMessageView();
+    renderTabBadges();
+    document.querySelector(".sheet-task .sh-t").textContent = "消息详情";
+    document.querySelector(".sheet-task .sh-ic").textContent = "💬";
+    document.getElementById("taskHeadSub").textContent = m.cat + " · " + m.time;
+    document.getElementById("taskBody").innerHTML =
+      '<span class="nb-tag" style="align-self:flex-start">' + esc(m.cat) + '</span>' +
+      '<h3 class="task-title">' + esc(m.title) + '</h3>' +
+      '<p style="margin:0;font-size:14px;line-height:1.7;color:var(--text-secondary)">' + esc(m.body) + '</p>' +
+      '<div style="margin-top:12px;font-size:12px;color:var(--text-weak)">' + esc(m.time) + ' · 来源：站内信（钉钉卡片落地）</div>';
+    document.getElementById("taskActions").innerHTML =
+      '<button class="btn" onclick="closeAllSheets()">关闭</button>' +
+      '<button class="btn btn-primary" onclick="toast(\'已标记为已读（原型演示）\');closeAllSheets()">我知道了</button>';
+    openSheet("taskSheet");
+  }
+  /* ============================================================
+     UI-M-04 消息卡片落地页（A2-F04，独立入口 /m/messages/:id）
+     ------------------------------------------------------------
+     与「消息中心」的区别：本页是钉钉/企微**卡片外部 URL** 的落地页，
+     直接由容器唤起（不经过消息中心），展示消息全文 + 业务跳转按钮，
+     并适配容器导航栏返回行为（goBack 回退到上一屏）。
+     ============================================================ */
+  function renderLanding(id) {
+    var m = (MOCK.messages || []).filter(function (x) { return x.id === id; })[0];
+    var box = document.getElementById("landingView");
+    if (!m) {
+      box.innerHTML = '<div class="group-empty">该消息不存在或已撤回</div>';
+      document.getElementById("landingHead").textContent = "消息详情";
+      return;
+    }
+    markMsgRead(id); renderTabBadges();
+    document.getElementById("landingHead").textContent = m.title.length > 12 ? m.title.slice(0, 12) + "…" : m.title;
+    document.getElementById("landingNote").textContent = m.cat + " · 钉钉卡片落地页";
+    box.innerHTML =
+      '<div class="m-card" style="cursor:default">' +
+        '<span class="nb-tag" style="align-self:flex-start">' + esc(m.cat) + '</span>' +
+        '<h3 style="margin:8px 0 6px;font-size:17px;font-weight:700;letter-spacing:-.2px">' + esc(m.title) + '</h3>' +
+        '<div style="font-size:12px;color:var(--text-weak);margin-bottom:12px">' + esc(m.time) + ' · 来源：站内信</div>' +
+        '<p style="margin:0;font-size:14.5px;line-height:1.8;color:var(--text-body)">' + esc(m.body) + '</p>' +
+        '<div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">' +
+          (m.jumpUrl
+            ? '<button class="r-go" style="width:100%;height:44px" onclick="landingJump()">去业务系统处理 →</button>'
+            : '<div style="font-size:12px;color:var(--text-weak)">本条为纯通知，无需跳转处理</div>') +
+          '<button class="r-go" style="width:100%;height:44px;background:var(--surface-2);color:var(--text-body);border:var(--line)" onclick="goMessagesFromLanding()">查看全部消息</button>' +
+        '</div>' +
+        '<div style="margin-top:14px;font-size:12px;color:var(--text-weak)">ℹ 本页为钉钉/企微卡片「查看详情」的落地页；在容器内打开时导航栏返回键将回到上级页面。</div>' +
+      '</div>';
+  }
+  function landingJump() { toast("新标签页打开业务系统处理页（带 SSO 免登）"); }
+  function goMessagesFromLanding() { go("s-messages", "消息中心"); }
+  /* 外部入口：钉钉/企微卡片「查看详情」→ /m/messages/:id（本原型以函数模拟） */
+  function openMsgLanding(id) { go("s-msg-landing", "消息详情"); renderLanding(id); }
+
+  function openNoticeDetail(id) {
+    var n = (MOCK.notices || []).filter(function (x) { return x.id === id; })[0];
+    if (!n) return;
+    document.querySelector(".sheet-task .sh-t").textContent = "公告详情";
+    document.querySelector(".sheet-task .sh-ic").textContent = "📢";
+    document.getElementById("taskHeadSub").textContent = "公司公告 · " + (n.dept || "行政部");
+    document.getElementById("taskBody").innerHTML =
+      '<span class="nb-tag ' + (n.top ? "pin" : "") + '" style="align-self:flex-start">' + (n.top ? "置顶" : "公告") + '</span>' +
+      '<h3 class="task-title">' + esc(n.title) + '</h3>' +
+      '<p style="margin:0;font-size:14px;line-height:1.7;color:var(--text-secondary)">' + esc(n.body) + '</p>' +
+      '<div style="margin-top:12px;font-size:12px;color:var(--text-weak)">发布：' + esc(n.dept || "") + ' · ' + esc(n.time || "") + '</div>';
+    document.getElementById("taskActions").innerHTML =
+      '<button class="btn" onclick="closeAllSheets()">关闭</button>' +
+      '<button class="btn btn-primary" onclick="closeAllSheets()">我知道了</button>';
+    openSheet("taskSheet");
+  }
+
+  /* ============================================================
+     屏 5：我的 —— 个人信息 + 常用入口（含「我的订阅」管理入口）
+     ============================================================ */
+  function renderMeView() {
+    var box = document.getElementById("meView");
+    if (!box) return;
+    var u = MOCK.user;
+    var subCount = loadSubscriptions().length;
+    var roles = (u.roles || []).map(function (r) { return '<span class="me-role">' + esc(r) + '</span>'; }).join("");
+    box.innerHTML =
+      '<div class="me-hero">' +
+        '<div class="me-avatar">' + esc(u.avatarText || String(u.name).slice(0, 1)) + '</div>' +
+        '<div class="me-info">' +
+          '<div class="me-nm">' + esc(u.name) + '</div>' +
+          '<div class="me-org">' + esc(u.org) + ' · ' + esc(u.employeeNo) + '</div>' +
+          '<div class="me-roles">' + roles + '</div>' +
+        '</div>' +
+      '</div>' +
+      /* 业务入口组 */
+      '<div class="me-group">' +
+        meItem("📝", "我的待办", pendingTodoCount() + " 条待处理", "go('s-todos','待办中心')") +
+        meItem("✅", "待我审批", pendingApprovalCount() + " 项待办", "go('s-approval','审批中心')") +
+        meItem("🔖", "我的订阅", subCount + " 个应用 · 与 PC 同步", "openSubsManager()") +
+        meItem("🧩", "全部应用", "SSO 免登直达", "openSheet('appsSheet')") +
+      '</div>' +
+      /* 账号设置组 */
+      '<div class="me-group">' +
+        meItem("⚙️", "个人设置", "组织 / 员工号 / 角色", "toast('个人设置（与 PC settings.html 一致）')") +
+        meItem("🔒", "安全设置", "登录会话 / 免登凭证", "toast('安全设置：会话管理（jti 绑定），与 PC 会话管理一致')") +
+        meItem("🛡", "管理控制台", "系统管理员入口", "toast('打开管理控制台（按角色授权可见）')") +
+      '</div>' +
+      /* 退出 */
+      '<div class="me-group">' +
+        '<div class="me-item danger" onclick="logout()"><span class="mei-ic">🚪</span><span class="mei-tx">退出登录</span><span class="mei-go">›</span></div>' +
+      '</div>' +
+      '<div class="foot-note">免登会话由钉钉容器承载 · 退出将全局登出所有已接入系统</div>';
+  }
+  function meItem(ic, title, sub, onclick) {
+    return '<div class="me-item" onclick="' + onclick + '">' +
+      '<span class="mei-ic">' + ic + '</span>' +
+      '<span class="mei-tx">' + esc(title) + '<div class="mei-sub">' + esc(sub) + '</div></span>' +
+      '<span class="mei-go">›</span></div>';
+  }
+
+  /* ============================================================
+     「我的订阅」管理（移动端补上的管理入口）
+     —— 与首页订阅同源（localStorage key: bmp_my_subscriptions）
+     —— 支持勾选/取消本页 APP_LIST 中的应用，即时写回 localStorage
+     ============================================================ */
+  function openSubsManager() {
+    document.querySelector(".sheet-task .sh-t").textContent = "我的订阅管理";
+    document.querySelector(".sheet-task .sh-ic").textContent = "🔖";
+    document.getElementById("taskHeadSub").textContent = "勾选常用应用（与 PC 实时同步）";
+    drawSubsManager();
+    openSheet("taskSheet");
+  }
+  function drawSubsManager() {
+    var names = loadSubscriptions();
+    var list = APP_LIST.slice().sort(function (a, b) { return (b.freq || 0) - (a.freq || 0); });
+    document.getElementById("taskBody").innerHTML =
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6">勾选后将在首页「我的订阅」区展示（横滑直达）。</div>' +
+      list.map(function (a) {
+        var on = names.indexOf(a.name) !== -1;
+        return '<div class="me-item" onclick="toggleSub(\'' + esc(a.name) + '\')">' +
+          '<span class="mei-ic">' + (a.icon || "🧩") + '</span>' +
+          '<span class="mei-tx">' + esc(a.name) + '<div class="mei-sub">' + esc(a.group || "") + ' · 使用频次 ' + (a.freq || 0) + '</div></span>' +
+          '<span class="mei-go" style="font-size:18px;color:' + (on ? "var(--accent)" : "var(--text-weak)") + '">' + (on ? "☑" : "☐") + '</span>' +
+        '</div>';
+      }).join("");
+    document.getElementById("taskActions").innerHTML =
+      '<button class="btn btn-primary" onclick="closeAllSheets()">完成</button>';
+  }
+  function toggleSub(name) {
+    var names = loadSubscriptions();
+    var i = names.indexOf(name);
+    if (i >= 0) names.splice(i, 1); else names.push(name);
+    try { localStorage.setItem(SUB_KEY, JSON.stringify(names)); } catch (e) {}
+    drawSubsManager();
+    renderSubs();   /* 首页订阅区即时同步 */
+    renderMeView(); /* 「我的」订阅计数即时同步 */
+    toast(i >= 0 ? "已取消订阅「" + name + "」" : "已订阅「" + name + "」");
+  }
+
+  /* ============================================================
+     行动栏「滚动后出现」——首页滚动超过阈值显示，回到顶部收起
+     —— 与 Tab 栏共存：行动栏定位在 Tab 栏之上（bottom = --bottom-chrome），二者不重叠
+     ============================================================ */
+  var ACTION_SHOW_AT = 160;
+  function bindActionBar() {
+    var scr = document.getElementById("s-home");
+    if (!scr) return;
+    function update() {
+      var bar = document.getElementById("actionBar");
+      if (!bar) return;
+      var onHome = document.querySelector(".screen.active").id === "s-home";
+      if (!onHome) { bar.classList.remove("show"); return; }
+      if (scr.scrollTop > ACTION_SHOW_AT) bar.classList.add("show");
+      else bar.classList.remove("show");
+    }
+    scr.addEventListener("scroll", update);
+    update();
+  }
+
+  /* ============================================================
+     初始化
+     ============================================================ */
+  function refresh() {
+    renderHero();
+    renderBrief();
+    renderLists();
+    renderSubs();
+    renderEmbeds();
+    renderApps();
+    renderTabBadges();
+    renderTodoView();
+  }
+  (function init() {
+    var h = new Date().getHours();
+    var greet = (h < 12 ? "早上好" : h < 18 ? "下午好" : "晚上好") + "，" + MOCK.user.name;
+    document.getElementById("greetLine").textContent = greet;
+
+    renderIntents();
+    refresh();
+    window.addEventListener("bmp:intents-updated", renderIntents);
+    renderNoticeBanner();
+    bindActionBar();          /* 行动栏「滚动后出现」 */
+    applyMobileAiConfig(true);
+    syncTabActive("s-home");  /* Tab 激活态初始化 */
+    renderApprovalView();
+    renderMessageView();
+    renderMeView();
+
+    setTimeout(replayLogin, 400); // 打开即演示免登
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>应用中心 · 四种设计风格对比</title>
+<style>
+  :root {
+    --ink: #171717; --sub: #666; --line: rgba(0,0,0,.08);
+    --red: #C8161D;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fafafa; color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 32px 72px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .12em; color: var(--red);
+    font-weight: 600; text-transform: uppercase; margin-bottom: 10px;
+  }
+  h1 { font-size: 40px; font-weight: 600; letter-spacing: -1.4px; margin: 0 0 12px; }
+  .lede { font-size: 16px; line-height: 1.6; color: var(--sub); max-width: 720px; margin: 0 0 8px; }
+  .meta {
+    display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-top: 14px; font-size: 13px; color: var(--sub);
+  }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .chip {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    background: rgba(200,22,29,.07); color: var(--red); font-size: 12px; font-weight: 600;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;
+    margin-top: 36px;
+  }
+  .card {
+    display: block; text-decoration: none; color: inherit;
+    background: #fff; border-radius: 14px; overflow: hidden;
+    box-shadow: var(--line) 0 0 0 1px, rgba(0,0,0,.03) 0 2px 6px;
+    transition: box-shadow .25s cubic-bezier(.16,1,.3,1), transform .25s cubic-bezier(.16,1,.3,1);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: rgba(0,0,0,.12) 0 0 0 1px, rgba(0,0,0,.08) 0 12px 28px;
+  }
+  .card-top {
+    height: 132px; position: relative; display: flex; align-items: center;
+    justify-content: center; overflow: hidden;
+  }
+  .card-top .label {
+    font-size: 22px; font-weight: 600; letter-spacing: -.5px;
+  }
+  .swatch { position: absolute; bottom: 12px; right: 14px; display: flex; gap: 5px; }
+  .swatch i { width: 14px; height: 14px; border-radius: 4px; display: block; }
+  .card-body { padding: 16px 20px 20px; }
+  .card-body h3 { font-size: 17px; font-weight: 600; margin: 0 0 6px; letter-spacing: -.2px; }
+  .card-body p { font-size: 13.5px; line-height: 1.6; color: var(--sub); margin: 0 0 12px; }
+  .traits { display: flex; flex-wrap: wrap; gap: 6px; }
+  .traits span {
+    font-size: 11.5px; padding: 3px 9px; border-radius: 6px;
+    background: rgba(0,0,0,.05); color: #444;
+  }
+  .open-hint { font-size: 12.5px; color: var(--red); font-weight: 600; margin-top: 12px; display: block; }
+
+  /* 顶部说明条 */
+  .notice {
+    margin-top: 32px; padding: 16px 20px; border-radius: 12px;
+    background: #fff; box-shadow: var(--line) 0 0 0 1px;
+    font-size: 14px; line-height: 1.7; color: #444;
+  }
+  .notice b { color: var(--ink); }
+  .notice ul { margin: 8px 0 0; padding-left: 20px; }
+  .notice li { margin-bottom: 4px; }
+  footer { margin-top: 40px; font-size: 12.5px; color: #999; line-height: 1.8; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">麓邦业务中台 · UI 改版选型</div>
+  <h1>应用中心 · 四种设计风格对比</h1>
+  <p class="lede">
+    四张样稿的<strong>内容结构、文案、数据完全一致</strong>（八个区块：顶栏 / 标题区 / 智能搜索 / AI 推荐 / 最近使用 / 应用分组 / AI 助手 / 底部说明），
+    仅有视觉风格不同。请横向对比后选定基调，我再据此改造全站。
+  </p>
+  <div class="meta">
+    <span class="chip">内容锁死 · 只变视觉</span>
+    <span>原型现有 <b>38 页</b></span>
+    <span>·</span>
+    <span>品牌红 <b>#C8161D</b></span>
+    <span>·</span>
+    <span>AI 融入点 <b>3 处</b>（搜索 / 推荐 / 助手）</span>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="sample-apple.html">
+      <div class="card-top" style="background:#f5f5f7">
+        <span class="label" style="color:#1d1d1f;font-family:-apple-system,'SF Pro Display',sans-serif">苹果风 · Apple</span>
+        <div class="swatch"><i style="background:#f5f5f7"></i><i style="background:#1d1d1f"></i><i style="background:#C8161D"></i></div>
+      </div>
+      <div class="card-body">
+        <h3>Apple 风 · 大留白 + 毛玻璃</h3>
+        <p>光学字号与负字间距，980px 胶囊圆角，导航毛玻璃悬浮。品牌红严守「仅作强调色」规范，不铺背景。</p>
+        <div class="traits"><span>#f5f5f7 底</span><span>980px 胶囊</span><span>毛玻璃</span><span>无边框</span></div>
+        <span class="open-hint">打开样稿 →</span>
+      </div>
+    </a>
+
+    <a class="card" href="sample-vercel.html">
+      <div class="card-top" style="background:#ffffff">
+        <span class="label" style="color:#171717;letter-spacing:-1.5px">Vercel · 黑白精密</span>
+        <div class="swatch"><i style="background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></i><i style="background:#171717"></i><i style="background:#C8161D"></i></div>
+      </div>
+      <div class="card-body">
+        <h3>Vercel 风 · 黑白极简</h3>
+        <p>shadow-as-border 取代实线边框，-2.4px 极端负字间距，字重上限 600。品牌红仅出现在 2 个关键动作上。</p>
+        <div class="traits"><span>#171717 文本</span><span>shadow-as-border</span><span>-2.4px 字距</span><span>禁 700</span></div>
+        <span class="open-hint">打开样稿 →</span>
+      </div>
+    </a>
+
+    <a class="card" href="sample-notion.html">
+      <div class="card-top" style="background:#f6f5f4">
+        <span class="label" style="color:rgba(0,0,0,.95)">Notion · 暖色纸感</span>
+        <div class="swatch"><i style="background:#f6f5f4"></i><i style="background:#615d59"></i><i style="background:#C8161D"></i></div>
+      </div>
+      <div class="card-body">
+        <h3>Notion · Claude 风 · 暖色极简</h3>
+        <p>暖白底带黄褐底调，1px 细如耳语的边框贯穿全页，多层低透明度阴影。阅读优先、温和亲切。</p>
+        <div class="traits"><span>#f6f5f4 暖白</span><span>1px 细边框</span><span>多层浅阴影</span><span>9999px 徽标</span></div>
+        <span class="open-hint">打开样稿 →</span>
+      </div>
+    </a>
+
+    <a class="card" href="sample-dark.html">
+      <div class="card-top" style="background:#08090a">
+        <span class="label" style="color:#f7f8f8">深色科技风 · Dark</span>
+        <div class="swatch"><i style="background:#08090a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)"></i><i style="background:#191a1b"></i><i style="background:#C8161D"></i></div>
+      </div>
+      <div class="card-body">
+        <h3>深色科技风 · Linear / Raycast 系</h3>
+        <p>四档表面色阶分层，1px 极淡边框，不用阴影造深度。品牌红作高亮，最具「AI 产品」气质。</p>
+        <div class="traits"><span>#08090a 底</span><span>色阶分层</span><span>1px 淡边框</span><span>无阴影</span></div>
+        <span class="open-hint">打开样稿 →</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="notice">
+    <b>选型时建议重点看这 3 处（AI 融入点）：</b>
+    <ul>
+      <li><b>③ 智能搜索</b> — 支持「打开招聘系统」「上周提交的报销」这类自然语言，而非关键词匹配</li>
+      <li><b>④ AI 为你推荐</b> — 三张推荐卡各带一句理由（如「你每周一上午都会打开它，已连续 12 周」），体现智能排序</li>
+      <li><b>⑦ 全局 AI 助手</b> — 右下角常驻，样稿已展开显示对话面板与 3 个快捷指令</li>
+    </ul>
+    <div style="margin-top:12px">
+      <b>一处需要你知晓的冲突</b>：深色科技风与项目既有的「仅浅色主题」决议（UIUX 决议 #3）相抵触。若最终选它，我会同步修订该决议，不让文档自相矛盾。
+    </div>
+  </div>
+
+  <footer>
+    麓邦业务中台 · 应用中心设计样稿 · 共 4 张<br>
+    内容规格：<code>style-samples/_SPEC.md</code> · 纯 HTML 单文件、零依赖、无外链资源、可直接打开
+  </footer>
+</div>
+</body>
+</html>

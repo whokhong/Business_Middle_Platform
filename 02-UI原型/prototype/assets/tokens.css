@@ -1,0 +1,121 @@
+/* ============================================================
+   麓邦业务中台 Design Tokens —— Notion 暖色体系（双轨制）
+   ------------------------------------------------------------
+   第一轨：Notion 暖色基准变量（与 home-v2.html / sample-notion.html 内联变量对齐）
+   第二轨：--bmp-* 兼容别名（旧页面 11 页 + common.css 共 1498 处引用，
+           保持变量名不变、仅改值 → 旧页面零改动自动变暖色）
+   语义色（success/warning/danger）固定，不随主题风格变化（裁定 3）
+   纯 CSS，零外链
+   ============================================================ */
+:root {
+  /* ==========================================================
+     第一轨：Notion 暖色体系（新基准）
+     对齐 home-v2.html / sample-notion.html 的 :root 变量名
+     ========================================================== */
+  /* 表面 */
+  --page-bg: #ffffff;              /* 页面最底：纯白画布（与 V2 一致） */
+  --canvas: #ffffff;              /* 卡片/画布底 */
+  --surface: #f6f5f4;             /* 区块 / 卡片底：暖白，带黄褐底调 */
+  --surface-hover: #efedea;
+  --surface-sunken: #f8f7f6;      /* 表头 / 浅陷底（比 surface 略亮） */
+  --dark-surface: #31302e;
+  --device-frame-bg: #e9e7e4;    /* 移动端「手机壳」外背景（中性暖灰，替代旧冷色 #E2E8F0） */
+  --device-frame-ink: #31302e;   /* 移动端「手机壳」边框 / 状态栏文字（暖深灰，替代旧冷色 #0F172A） */
+
+  /* 文字 */
+  --text-primary: rgba(0, 0, 0, .95);
+  --text-secondary: #615d59;      /* 暖灰 500 */
+  --text-weak: #767068;           /* 暖灰 —— 对比度达标：白底 4.90 / 暖白 4.50（WCAG AA，UIUX §4.7） */
+  --text-body: #444444;           /* 正文常规（旧 --bmp-text-body 对齐值） */
+
+  /* 强调 */
+  --accent: #C8161D;              /* 麓邦红（品牌主色 / 紧急超时语义红） */
+  --accent-warm: #dd5b00;         /* 暖橙：hover / 辅助强调 */
+  --accent-warm-dark: #a2620a;    /* 暖橙深色档：浅底上文字（如「本周待办」标题），对比度 4.90（AA） */
+
+  /* 边框 & 阴影 */
+  --line-color: rgba(0, 0, 0, .1);          /* 细边框色值（供 border-color 等使用） */
+  --line: 1px solid rgba(0, 0, 0, .1);      /* 细如耳语的边框（简写） */
+  --border-strong-color: rgba(0, 0, 0, .18);
+  --shadow-soft:
+    rgba(0, 0, 0, .04) 0 4px 18px,
+    rgba(0, 0, 0, .027) 0 2px 8px,
+    rgba(0, 0, 0, .02) 0 .8px 3px;
+  --shadow-lift:
+    rgba(0, 0, 0, .05) 0 8px 28px,
+    rgba(0, 0, 0, .035) 0 3px 10px,
+    rgba(0, 0, 0, .025) 0 1px 4px;
+
+  /* 圆角 */
+  --r-card: 8px;
+  --r-pill: 9999px;
+
+  /* 字体 */
+  --font: Inter, -apple-system, "PingFang SC", sans-serif;
+
+  /* ==========================================================
+     第二轨：--bmp-* 兼容别名（42 个变量，一个都不能少）
+     值映射到第一轨暖色体系；变量名保持原样
+     ========================================================== */
+
+  /* ---- 品牌色（→ 暖色体系 accent） ---- */
+  --bmp-color-primary: var(--accent);          /* #C8161D 麓邦红 */
+  --bmp-color-primary-light: #FBECEC;          /* 品牌浅红底（语义：品牌浅色强调，保持） */
+  --bmp-color-primary-dark: #A51218;
+
+  /* ---- 语义色（【固定】不随风格变化，裁定 3） ---- */
+  --bmp-color-success: #16A34A;
+  --bmp-color-success-light: #ECFDF3;
+  --bmp-color-success-dark: #15803D;   /* 深色档：浅底上文字用，4.76:1（AA） */
+  --bmp-color-warning: #F59E0B;
+  --bmp-color-warning-light: #FFFBEB;
+  --bmp-color-warning-dark: #92400E;   /* 深色档：浅底上文字用，6.84:1（AA） */
+  --bmp-color-danger: #F53F3F;         /* 亮红：只用于「错误 / 失败」语义，不用于紧急/超时 */
+  --bmp-color-danger-light: #FEF2F2;
+  --bmp-color-danger-dark: #B42318;    /* 深色档：浅底上文字用，6.01:1（AA）；亦供横幅文字 */
+  --bmp-color-info: #64748B;
+  --bmp-color-info-light: #f4f2f0;   /* 暖色中性浅底（原为旧冷色阶 #F1F5F9，值回归暖色体系，避免冷色经 info 语义回流） */
+
+  /* ---- 渠道品牌色（固定） ---- */
+  --bmp-color-dingtalk: #1677FF;
+  --bmp-color-wecom: #07C160;
+
+  /* ---- 中性色阶（→ 暖灰体系） ---- */
+  --bmp-text-title: var(--text-primary);       /* 暖黑 */
+  --bmp-text-body: #444444;                     /* 正文暖灰 */
+  --bmp-text-secondary: var(--text-secondary); /* #615d59 暖灰 500 */
+  --bmp-text-placeholder: var(--text-weak);    /* 暖灰 —— 与 --text-weak 同值并经对比度校验 */
+  --bmp-border: var(--line-color);             /* rgba(0,0,0,.1) */
+  --bmp-border-strong: var(--border-strong-color); /* rgba(0,0,0,.18) */
+  --bmp-bg-page: var(--surface);               /* 【关键】页面底：冷灰 #F1F5F9 → 暖白 #f6f5f4 */
+  --bmp-bg-card: var(--canvas);                /* #ffffff */
+
+  /* ---- 字体（统一字体栈为 var(--font)） ---- */
+  --bmp-font-family: var(--font);
+  --bmp-font-h1: 600 24px/32px var(--font);
+  --bmp-font-h2: 600 20px/28px var(--font);
+  --bmp-font-h3: 600 16px/24px var(--font);
+  --bmp-font-body: 400 14px/22px var(--font);
+  --bmp-font-caption: 400 12px/18px var(--font);
+  --bmp-font-number-lg: 600 28px/36px var(--font);
+
+  /* ---- 间距（4px 基准，保持不变） ---- */
+  --bmp-space-1: 4px;  --bmp-space-2: 8px;  --bmp-space-3: 12px;
+  --bmp-space-4: 16px; --bmp-space-5: 20px; --bmp-space-6: 24px;
+  --bmp-space-8: 32px;
+
+  /* ---- 圆角（贴近 Notion） ---- */
+  --bmp-radius-sm: 4px;
+  --bmp-radius-md: 8px;
+  --bmp-radius-lg: 12px;
+  --bmp-radius-btn: 8px;                        /* 原 4px → 8px */
+
+  /* ---- 阴影（Notion 多层低透明度） ---- */
+  --bmp-shadow-1: rgba(0, 0, 0, .04) 0 1px 3px, rgba(0, 0, 0, .02) 0 1px 2px;
+  --bmp-shadow-2: var(--shadow-soft);
+  --bmp-shadow-3: var(--shadow-lift);
+
+  /* ---- 尺寸（不变） ---- */
+  --bmp-topbar-h: 56px;
+  --bmp-console-menu-w: 232px;
+}

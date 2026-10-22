@@ -1,0 +1,2477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作台 · 麓邦业务中台（首页重构 V2）</title>
+<!-- 复用既有设计令牌与通用组件；新页面风格以本页内联样式为准 -->
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  /* ============================================================
+     麓邦业务中台 · 首页重构 V2（PC）
+     设计方向：Notion / Claude 暖色极简 · 三个范式转变
+       ① 数据罗列 → AI 判断（今日简报）
+       ② 应用导航 → 意图流
+       ③ 均匀栅格 → 时间轴 + 视觉权重
+     风格 Token 沿用 style-samples/sample-notion.html
+     ============================================================ */
+
+  /* ---------- ① 风格令牌（复制自 sample-notion.html 的 :root） ---------- */
+  :root {
+    --page-bg: #ffffff;
+    --surface: #f6f5f4;        /* 区块 / 卡片底：暖白，带黄褐底调 */
+    --surface-hover: #efedea;
+    --dark-surface: #31302e;
+
+    --text-primary: rgba(0, 0, 0, .95);
+    --text-secondary: #615d59;
+    --text-weak: #767068;
+
+    --accent: #C8161D;         /* 麓邦红 */
+    --accent-warm: #dd5b00;    /* 暖橙：hover 辅助 */
+
+    --line: 1px solid rgba(0, 0, 0, .1);   /* 细如耳语的边框 */
+    --shadow-soft:
+      rgba(0, 0, 0, .04) 0 4px 18px,
+      rgba(0, 0, 0, .027) 0 2px 8px,
+      rgba(0, 0, 0, .02) 0 .8px 3px;
+    --shadow-lift:
+      rgba(0, 0, 0, .05) 0 8px 28px,
+      rgba(0, 0, 0, .035) 0 3px 10px,
+      rgba(0, 0, 0, .025) 0 1px 4px;
+
+    --r-card: 8px;
+    --r-pill: 9999px;
+
+    --font: Inter, -apple-system, "PingFang SC", sans-serif;
+
+    /* 栏宽档位（编辑模式可调） */
+    --col-left: 300px;
+    --col-right: 288px;
+    --gap: 20px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea, select { font-family: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-warm); }
+
+  /* ---------- 顶栏（毛玻璃，Notion 气质） ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px; padding: 0 28px;
+    background: rgba(255, 255, 255, .72);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 7px; flex: none;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+  }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+  .brand-sep { width: 1px; height: 16px; background: rgba(0, 0, 0, .14); }
+  .brand-sub { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+
+  .topnav { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+  .topnav a {
+    padding: 6px 12px; border-radius: var(--r-pill);
+    font-size: 14px; font-weight: 500; color: var(--text-secondary);
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .15s, color .15s;
+  }
+  .topnav a:hover { background: var(--surface); color: var(--text-primary); }
+  .topnav a.active { background: var(--dark-surface); color: #f6f5f4; }
+  .topnav .n-badge {
+    min-width: 16px; height: 16px; padding: 0 5px; border-radius: var(--r-pill);
+    background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 600; letter-spacing: .125px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .cmd-trigger {
+    display: flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 10px 0 12px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-pill);
+    color: var(--text-secondary); font-size: 14px;
+    transition: background .15s, color .15s;
+  }
+  .cmd-trigger:hover { background: var(--surface-hover); color: var(--text-primary); }
+  .cmd-trigger .kbd { margin-left: 4px; }
+  .kbd {
+    padding: 3px 8px; background: #fff; border: var(--line); border-radius: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-secondary);
+  }
+  .tb-bell {
+    position: relative; width: 34px; height: 34px; border: none; border-radius: var(--r-pill);
+    background: transparent; color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .tb-bell:hover { background: var(--surface); color: var(--text-primary); }
+  .tb-bell .dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--accent); border: 1.5px solid #fff; }
+  .topavatar {
+    width: 32px; height: 32px; border-radius: var(--r-pill); flex: none;
+    background: var(--dark-surface); color: #f6f5f4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  /* ---------- 编辑模式工具条 ---------- */
+  .edit-toolbar {
+    display: none; position: sticky; top: calc(56px + 8px); z-index: 35;
+    margin: 12px 28px -4px; padding: 10px 16px;
+    background: var(--dark-surface); color: #f6f5f4;
+    border-radius: var(--r-card); box-shadow: var(--shadow-lift);
+    align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px;
+  }
+  body.editing .edit-toolbar { display: flex; }
+  .edit-toolbar .sp { flex: 1; }
+  .et-btn {
+    height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;
+    background: transparent; border: 1px solid rgba(255, 255, 255, .35); color: #f6f5f4;
+    font-size: 13px;
+  }
+  .et-btn:hover { border-color: #fff; background: rgba(255, 255, 255, .12); }
+  .et-btn.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .et-btn.primary:hover { background: var(--accent-warm); border-color: var(--accent-warm); }
+  .et-seg { display: inline-flex; align-items: center; gap: 6px; }
+  .et-seg .lbl { opacity: .7; }
+  /* 授权边界提示（栏位/栏宽归管理员模板） */
+  .et-note { font-size: 12px; color: #f6f5f4; opacity: .72; padding: 0 4px; cursor: help; }
+  .et-pill {
+    min-width: 30px; height: 24px; padding: 0 8px; border-radius: var(--r-pill); cursor: pointer;
+    background: transparent; border: 1px solid rgba(255, 255, 255, .35); color: #f6f5f4; font-size: 12px;
+  }
+  .et-pill.on { background: #f6f5f4; color: var(--dark-surface); border-color: #f6f5f4; font-weight: 600; }
+
+  /* ---------- 三栏骨架 ---------- */
+  .hw { max-width: 1440px; margin: 0 auto; padding: 24px 28px 120px; }
+  .hw-cols {
+    display: grid;
+    grid-template-columns: var(--col-left) minmax(0, 1fr) var(--col-right);
+    gap: var(--gap);
+    align-items: stretch;                    /* 三栏等高 → 底部对齐 */
+  }
+  .col { min-width: 0; display: flex; flex-direction: column; gap: var(--gap); }
+  /* 末位卡片撑满剩余高度，使三栏"卡片底部"齐平（而非仅容器等高） */
+  .col > .blk:last-child { flex: 1 1 auto; }
+  .col > .hidden-blk:last-child { flex: 0 0 auto; }   /* 编辑态隐藏的末位卡不参与拉伸 */
+
+  /* ---------- 区块（布局引擎的"卡片"） ---------- */
+  .blk { position: relative; }
+  body.editing .blk { outline: 2px dashed rgba(200, 22, 29, .55); outline-offset: 3px; border-radius: var(--r-card); }
+  .blk-ops { display: none; position: absolute; top: 6px; right: 6px; z-index: 6; gap: 4px; }
+  body.editing .blk-ops { display: flex; }
+  .blk-ops button {
+    width: 24px; height: 24px; border-radius: 6px; cursor: pointer;
+    border: var(--line); background: #fff; color: var(--text-secondary); font-size: 12px;
+  }
+  .blk-ops button:hover { color: var(--accent); border-color: var(--accent); }
+  .blk.hidden-blk { opacity: .4; }
+  body.editing .blk[draggable="true"] { cursor: grab; }
+
+  /* ---------- 通用卡片壳 ---------- */
+  .board {
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    padding: 18px;
+  }
+  .board.plain { background: transparent; border: none; padding: 0; }
+  .sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .sec-head h2 {
+    margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.2px; color: var(--text-primary);
+  }
+  .sec-note { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .badge-ai {
+    padding: 3px 9px; background: var(--accent); color: #fff; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; letter-spacing: .125px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+
+  /* ---------- ① AI 今日简报 ---------- */
+  .brief-card {
+    background: linear-gradient(180deg, #fbf3f3 0%, var(--surface) 100%);
+    border: var(--line); border-radius: var(--r-card); padding: 18px 18px 16px;
+    position: relative; overflow: hidden;
+  }
+  .brief-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent);
+  }
+  .brief-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .brief-stamp { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .brief-text {
+    margin: 0; font-size: 16px; font-weight: 400; line-height: 1.62; color: var(--text-primary);
+  }
+  .brief-text b { font-weight: 700; }
+  .brief-text .hl-accent { color: var(--accent); font-weight: 700; }
+  .brief-detail { margin-top: 12px; display: flex; flex-direction: column; gap: 2px; }
+  .brief-detail[hidden] { display: none; }
+  .brief-line {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 7px 0; border-top: var(--line); font-size: 14px; color: var(--text-secondary);
+  }
+  .brief-line .nm { color: var(--text-primary); font-weight: 500; }
+  .brief-line .tagline { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); white-space: nowrap; }
+  .brief-acts { display: flex; gap: 10px; margin-top: 16px; }
+  .btn-primary {
+    height: 40px; padding: 0 20px; border: none; border-radius: var(--r-pill);
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .15s, transform .15s;
+  }
+  .btn-primary:hover { background: var(--accent-warm); transform: translateY(-1px); }
+  .btn-ghost {
+    height: 40px; padding: 0 18px; border: var(--line); border-radius: var(--r-pill);
+    background: #fff; color: var(--text-primary); font-size: 15px; font-weight: 500;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-ghost:hover { background: var(--surface-hover); border-color: rgba(0, 0, 0, .18); }
+
+  /* 简报生成中骨架 */
+  .brief-skeleton .skr { position: relative; overflow: hidden; background: rgba(0, 0, 0, .06); border-radius: 6px; }
+  .brief-skeleton .skr::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent);
+    animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .brief-skeleton .l { height: 14px; margin-bottom: 10px; }
+  .brief-skeleton .l.w90 { width: 90%; } .brief-skeleton .l.w70 { width: 70%; } .brief-skeleton .l.w50 { width: 50%; }
+  .fadein { animation: fadein .18s ease-out; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } }
+
+  /* ---------- ② 意图流 ---------- */
+  .intent-list { display: flex; flex-direction: column; }
+  .intent-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 12px; border-radius: var(--r-card); cursor: pointer;
+    transition: background .15s; border: 1px solid transparent;
+  }
+  .intent-item + .intent-item { border-top: var(--line); border-radius: 0; }
+  .intent-item:hover { background: #fff; border-color: rgba(0, 0, 0, .08); border-radius: var(--r-card); }
+  .intent-ic {
+    width: 32px; height: 32px; flex: none; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    background: #fff; border: var(--line);
+  }
+  .intent-txt { min-width: 0; flex: 1; }
+  .intent-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .intent-sub { font-size: 12px; font-weight: 500; color: var(--text-weak); margin-top: 1px; }
+  .intent-go { flex: none; color: var(--text-weak); font-size: 14px; }
+  .intent-item:hover .intent-go { color: var(--accent); }
+
+  /* ---------- 全部应用（折叠） ---------- */
+  .apps-toggle {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 13px 16px; background: transparent; border: var(--line); border-radius: var(--r-card);
+    font-size: 14px; font-weight: 600; color: var(--text-primary); text-align: left;
+  }
+  .apps-toggle:hover { background: #fff; }
+  .apps-toggle .caret { margin-left: auto; color: var(--text-weak); transition: transform .18s; }
+  .apps-toggle.open .caret { transform: rotate(90deg); }
+  .apps-toggle .cnt { font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .apps-panel { display: none; margin-top: 10px; }
+  .apps-panel.open { display: block; }
+  .apps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .app-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 4px; border-radius: var(--r-card); cursor: pointer; transition: background .15s;
+  }
+  .app-cell:hover { background: #fff; }
+  .app-cell .ic {
+    width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 19px;
+    background: #fff; border: var(--line);
+  }
+  .app-cell .nm { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-align: center; line-height: 1.3; }
+
+  /* ---------- ③ 紧迫度时间轴流 ---------- */
+  .stream-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .stream-head h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.25px; color: var(--text-primary); }
+  .stream-sub { font-size: 14px; font-weight: 500; color: var(--text-weak); }
+  .group { margin-top: 22px; }
+  .group-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; padding-bottom: 9px; border-bottom: var(--line); }
+  .group-head .g-title { font-size: 15px; font-weight: 700; letter-spacing: -.1px; }
+  .group-head .g-cnt { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .g-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+  /* 组：今天必须做（红 / 视觉最重） */
+  .grp-today .g-title { color: var(--accent); }
+  .grp-today .g-dot { background: var(--accent); box-shadow: 0 0 0 4px rgba(200, 22, 29, .12); }
+  .row {
+    display: flex; align-items: flex-start; gap: 14px;
+    border-radius: var(--r-card); background: var(--surface);
+    border: var(--line); padding: 16px 18px; margin-bottom: 10px;
+    transition: box-shadow .18s, transform .18s, background .18s;
+  }
+  .row:hover { background: #fff; box-shadow: var(--shadow-soft); transform: translateY(-1px); }
+  /* —— 视觉权重明显递减（权重检验） —— */
+  .grp-today .row {
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(180deg, #fdf5f5 0%, var(--surface) 100%);
+    padding: 18px 20px;
+  }
+  .grp-today .row .r-title { font-size: 17px; font-weight: 700; }
+  .grp-today .row .r-ic { background: rgba(200, 22, 29, .08); border-color: rgba(200, 22, 29, .18); }
+
+  .grp-week .g-title { color: var(--accent-warm-dark); }
+  .grp-week .g-dot { background: var(--accent-warm); }
+  .grp-week .row { border-left: 3px solid var(--accent-warm); opacity: 1; padding: 14px 16px; }
+  .grp-week .row .r-title { font-size: 15px; font-weight: 600; }
+
+  .grp-know .g-title { color: var(--text-weak); }
+  .grp-know .g-dot { background: rgba(0, 0, 0, .18); }
+  .grp-know .row {
+    background: transparent; border: none; border-bottom: var(--line); border-radius: 0;
+    margin-bottom: 0; padding: 9px 4px; border-left: none;
+  }
+  .grp-know .row:hover { background: transparent; box-shadow: none; transform: none; }
+  .grp-know .row .r-title { font-size: 14px; font-weight: 400; color: var(--text-secondary); }
+  .grp-know .row .r-ic { display: none; }
+  .grp-know .row .r-acts { opacity: .7; }
+  .grp-know .row .btn-pill { border: none; background: none; padding: 0; height: auto; color: var(--text-weak); font-size: 12px; }
+  .grp-know .row .btn-pill:hover { color: var(--text-secondary); }
+
+  .r-ic {
+    width: 38px; height: 38px; flex: none; border-radius: 9px; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    background: #fff; border: var(--line);
+  }
+  .grp-know .r-ic { width: auto; height: auto; }
+  .r-main { flex: 1; min-width: 0; }
+  .r-title { color: var(--text-primary); line-height: 1.4; }
+  .r-meta { margin-top: 3px; font-size: 12px; font-weight: 500; color: var(--text-weak); }
+  .r-meta .src { color: var(--text-secondary); font-weight: 600; }
+  .r-remain { font-size: 13px; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
+  .r-remain.hot { color: var(--accent); }
+  .r-acts { display: flex; align-items: center; gap: 8px; flex: none; }
+  .btn-pill {
+    height: 32px; padding: 0 14px; border-radius: var(--r-pill); cursor: pointer;
+    border: var(--line); background: #fff; color: var(--text-primary); font-size: 13px; font-weight: 500;
+    white-space: nowrap; transition: all .15s;
+  }
+  .btn-pill:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-pill.solid { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-pill.solid:hover { background: var(--accent-warm); border-color: var(--accent-warm); color: #fff; }
+  .btn-pill.done:hover { border-color: #16A34A; color: #16A34A; }
+
+  /* 中栏空态 */
+  .stream-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; padding: 64px 24px; text-align: center;
+    background: var(--surface); border: var(--line); border-radius: var(--r-card);
+  }
+  .stream-empty .ico { font-size: 34px; }
+  .stream-empty .t1 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .stream-empty .t2 { font-size: 14px; font-weight: 500; color: var(--text-weak); max-width: 320px; }
+
+  /* ---------- 右栏：关注动态 / 快捷统计 ---------- */
+  .watch-item { display: flex; gap: 11px; padding: 11px 0; border-bottom: var(--line); }
+  .watch-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .watch-ic { width: 32px; height: 32px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; background: #fff; border: var(--line); }
+  .watch-body { min-width: 0; flex: 1; }
+  .watch-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .watch-act { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.45; margin-top: 2px; }
+  .watch-time { font-size: 12px; font-weight: 500; color: var(--text-weak); margin-top: 3px; }
+  .stat-row { display: flex; align-items: baseline; justify-content: space-between; padding: 9px 0; border-bottom: var(--line); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+  .stat-row .v { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -.5px; }
+  .stat-row .v.hot { color: var(--accent); }
+
+  /* ---------- 右栏：我的订阅（规格 3） ---------- */
+  .sub-manage {
+    margin-left: auto; height: 26px; padding: 0 12px;
+    border: var(--line); background: #fff; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    transition: all .15s;
+  }
+  .sub-manage:hover { border-color: var(--accent); color: var(--accent); }
+  /* 两列小宫格：适配 ~288px 窄栏，图标 + 应用名 */
+  .sub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sub-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 11px 6px; min-height: 64px;
+    background: #fff; border: var(--line); border-radius: var(--r-card);
+    transition: box-shadow .15s, border-color .15s, transform .15s;
+  }
+  .sub-cell:hover { border-color: rgba(200, 22, 29, .35); box-shadow: var(--shadow-soft); transform: translateY(-1px); }
+  .sub-cell .sc-ic { font-size: 20px; line-height: 1; }
+  .sub-cell .sc-nm {
+    font-size: 11.5px; font-weight: 500; color: var(--text-secondary);
+    text-align: center; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+    width: 100%; white-space: nowrap; text-overflow: ellipsis;
+  }
+  /* 空态：不空白，给引导 */
+  .sub-empty {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 18px 10px; text-align: center; cursor: pointer;
+    background: #fff; border: 1px dashed rgba(0, 0, 0, .16); border-radius: var(--r-card);
+    transition: border-color .15s, background .15s;
+  }
+  .sub-empty:hover { border-color: var(--accent); background: var(--surface); }
+  .sub-empty .se-ic { font-size: 22px; }
+  .sub-empty .se-t { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .sub-empty .se-s { font-size: 12px; font-weight: 500; color: var(--text-weak); }
+
+  /* 管理订阅弹窗：全部应用 + 复选框 */
+  .sub-modal { width: 460px; }
+  .sub-list { display: flex; flex-direction: column; gap: 2px; }
+  .sub-opt {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--r-card); cursor: pointer;
+    border: 1px solid transparent; transition: background .15s;
+  }
+  .sub-opt:hover { background: var(--surface); }
+  .sub-opt .so-ic { width: 30px; height: 30px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #fff; border: var(--line); }
+  .sub-opt .so-nm { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .sub-opt .so-grp { flex: none; font-size: 12px; font-weight: 500; color: var(--text-weak); }
+  .sub-opt input { flex: none; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+  /* ---------- ⌘K 命令栏 ---------- */
+  .cmdk-mask {
+    display: none; position: fixed; inset: 0; z-index: 1200;
+    background: rgba(30, 28, 26, .34);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    align-items: flex-start; justify-content: center; padding-top: 14vh;
+  }
+  .cmdk-mask.show { display: flex; }
+  .cmdk {
+    width: 620px; max-width: calc(100vw - 40px);
+    background: #fff; border: var(--line); border-radius: 12px;
+    box-shadow: var(--shadow-lift); overflow: hidden;
+    animation: cmdkIn .16s ease-out;
+  }
+  @keyframes cmdkIn { from { transform: translateY(-8px) scale(.99); opacity: 0; } }
+  .cmdk-in { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: var(--line); }
+  .cmdk-in .mag { color: var(--text-weak); flex: none; }
+  .cmdk-in input {
+    flex: 1; height: 26px; border: none; outline: none; background: transparent;
+    font-size: 17px; color: var(--text-primary);
+  }
+  .cmdk-in input::placeholder { color: var(--text-weak); }
+  .cmdk-list { max-height: 44vh; overflow: auto; padding: 8px; }
+  .cmdk-group-lbl { padding: 8px 12px 4px; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .cmdk-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-card); cursor: pointer;
+  }
+  .cmdk-item.active { background: var(--surface); }
+  .cmdk-item .ci { width: 26px; height: 26px; flex: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: #fff; border: var(--line); }
+  .cmdk-item .cl { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+  .cmdk-item .ch { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+  .cmdk-empty { padding: 28px; text-align: center; color: var(--text-weak); font-size: 14px; }
+  .cmdk-foot { display: flex; gap: 16px; padding: 10px 18px; border-top: var(--line); font-size: 12px; font-weight: 500; color: var(--text-weak); }
+
+  /* ---------- 意图表单弹窗（AI 预填） ---------- */
+  .modal-mask {
+    display: none; position: fixed; inset: 0; z-index: 1100; background: rgba(30, 28, 26, .38);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: 520px; max-width: 100%; max-height: 86vh; overflow: auto;
+    background: #fff; border: var(--line); border-radius: 12px; box-shadow: var(--shadow-lift);
+    animation: cmdkIn .18s ease-out;
+  }
+  .modal-head { display: flex; align-items: center; gap: 10px; padding: 18px 20px 12px; }
+  .modal-head h3 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
+  .modal-close { margin-left: auto; width: 28px; height: 28px; border: none; background: transparent; border-radius: 6px; color: var(--text-secondary); font-size: 15px; }
+  .modal-close:hover { background: rgba(0, 0, 0, .06); color: var(--text-primary); }
+  .modal-body { padding: 0 20px 8px; }
+  .ai-prefill {
+    display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; margin-bottom: 14px;
+    background: linear-gradient(180deg, #fbf3f3, var(--surface)); border: var(--line); border-radius: var(--r-card);
+    font-size: 13px; line-height: 1.5; color: var(--text-secondary);
+  }
+  .ai-prefill b { color: var(--accent); }
+  .field { margin-bottom: 13px; }
+  .field > label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .field > label .req { color: var(--accent); margin-left: 2px; }
+  .inp {
+    width: 100%; height: 38px; padding: 0 12px; border: var(--line); border-radius: var(--r-card);
+    font-size: 14px; color: var(--text-primary); background: #fff; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
+  .inp:focus { border-color: rgba(200, 22, 29, .5); box-shadow: 0 0 0 3px rgba(200, 22, 29, .08); }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px 18px; }
+
+  /* ---------- 演示工具条 ---------- */
+  .demo-hint {
+    position: fixed; left: 16px; bottom: 16px; z-index: 20;
+    background: rgba(49, 48, 46, .92); color: #f6f5f4;
+    padding: 9px 14px; border-radius: 10px; font-size: 12px; line-height: 1.9; box-shadow: var(--shadow-lift);
+  }
+  .demo-hint a { color: #ffcf7a; }
+  .demo-hint a:hover { color: #fff; }
+
+  /* ---------- 全局 AI 助手 FAB（原型演示 · sample-notion 范式） ---------- */
+  .portal-ai-wrap { position: fixed; right: 28px; bottom: 28px; z-index: 50; }
+  .portal-ai-wrap[hidden] { display: none !important; }
+  .portal-ai-fab {
+    display: flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px; border: none; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--accent-warm), var(--accent));
+    color: #fff; box-shadow: var(--shadow-lift);
+    cursor: pointer; transition: transform .18s, box-shadow .18s;
+  }
+  .portal-ai-fab:hover { transform: translateY(-2px) scale(1.03); }
+  .portal-ai-fab svg { width: 24px; height: 24px; }
+  .portal-ai-fab .ic-close { display: none; }
+  .portal-ai-fab.open .ic-spark { display: none; }
+  .portal-ai-fab.open .ic-close { display: block; }
+
+  .portal-ai-panel {
+    position: fixed; right: 28px; bottom: 96px; z-index: 50;
+    width: 340px; height: 440px;
+    display: flex; flex-direction: column;
+    background: #fff; border: var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-lift); overflow: hidden;
+    transform-origin: bottom right;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .portal-ai-panel:not(.open) {
+    opacity: 0; transform: translateY(12px) scale(.96); pointer-events: none;
+  }
+  .portal-ai-head {
+    display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px;
+    background: var(--surface); border-bottom: var(--line);
+  }
+  .portal-ai-head .pai-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .portal-ai-head .pai-sub { margin-top: 3px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
+  .portal-ai-head .pai-route {
+    display: inline-flex; align-items: center; height: 18px; padding: 0 8px; margin-top: 6px;
+    border-radius: var(--r-pill); background: rgba(200, 22, 29, .08); color: var(--accent);
+    font-size: 10px; font-weight: 700; letter-spacing: .125px;
+  }
+  .portal-ai-close {
+    margin-left: auto; flex: none; width: 28px; height: 28px;
+    border: none; background: transparent; border-radius: 6px;
+    color: var(--text-secondary); font-size: 14px; cursor: pointer;
+  }
+  .portal-ai-close:hover { background: rgba(0, 0, 0, .06); color: var(--text-primary); }
+  .portal-ai-body {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
+  }
+  .portal-ai-msg {
+    max-width: 88%; padding: 10px 12px; font-size: 13.5px; line-height: 1.55;
+    border-radius: var(--r-card);
+  }
+  .portal-ai-msg.ai { align-self: flex-start; background: var(--surface); border: var(--line); color: var(--text-primary); }
+  .portal-ai-msg.user { align-self: flex-end; background: var(--dark-surface); color: #f6f5f4; }
+  .portal-ai-msg.degrade { align-self: stretch; max-width: 100%; background: rgba(221, 91, 0, .08); border: 1px solid rgba(221, 91, 0, .22); color: var(--text-secondary); font-size: 12.5px; }
+  .portal-ai-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 10px; }
+  .portal-ai-chip {
+    padding: 6px 11px; background: #fff; border: var(--line); border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .portal-ai-chip:hover { background: var(--surface); color: var(--accent); border-color: rgba(0, 0, 0, .18); }
+  .portal-ai-foot {
+    display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-top: var(--line);
+  }
+  .portal-ai-foot input {
+    flex: 1; height: 38px; padding: 0 12px; border: var(--line); border-radius: var(--r-card);
+    background: var(--surface); outline: none; font-size: 13px; color: var(--text-primary);
+  }
+  .portal-ai-foot input:disabled { opacity: .55; cursor: not-allowed; }
+  .portal-ai-foot input::placeholder { color: var(--text-weak); }
+  .portal-ai-send {
+    flex: none; height: 38px; padding: 0 14px; border: none; border-radius: var(--r-card);
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .portal-ai-send:hover { background: var(--accent-warm); }
+  .portal-ai-send:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 网络异常横幅（UIUX §4.2：顶部全局横幅，自动重连后消失） */
+  .net-banner { display: none; padding: 8px 16px; background: var(--bmp-color-danger-light); color: var(--bmp-color-danger-dark); font-size: 13px; text-align: center; border-bottom: var(--line); }
+  .net-banner.show { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .net-banner button { height: 24px; padding: 0 10px; border: 1px solid var(--bmp-color-danger-light); background: transparent; color: var(--bmp-color-danger-dark); border-radius: var(--r-pill); font-size: 12px; }
+
+  /* ============================================================
+     通知 Banner（顶栏之下、三栏之上）
+     —— 封面规则：有条目才渲染，无条目完全不占位（display:none，非空横条）
+     —— 风格：暖色系低饱和背景 + 左侧细色条（参照 .brief-card / .net-banner）
+     ============================================================ */
+  .nb { display: none; }
+  .nb.on {
+    display: block;
+    max-width: 1440px; margin: 0 auto;
+    padding: 16px 28px 0;
+  }
+  .nb-inner {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center;
+    background: linear-gradient(180deg, #fdf6f1 0%, var(--surface) 100%);
+    border: var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-soft);
+  }
+  .nb-inner::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent-warm);
+  }
+  .nb-slide {  /* 单条内容区：内容交换式轮播（无边距跳动） */
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px 12px 19px;
+  }
+  .nb-fade { animation: nbFade .18s ease-out; }
+  @keyframes nbFade { from { opacity: 0; transform: translateY(3px); } }
+  .nb-ic { font-size: 16px; flex: none; }
+  .nb-tag {
+    flex: none; display: inline-flex; align-items: center;
+    height: 20px; padding: 0 9px; border-radius: var(--r-pill);
+    background: rgba(221, 91, 0, .12); color: var(--accent-warm);
+    font-size: 11px; font-weight: 700; letter-spacing: .125px; white-space: nowrap;
+  }
+  .nb-tag.pin { background: var(--accent); color: #fff; }
+  .nb-title { font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: -.1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42%; }
+  .nb-sum { flex: 1; min-width: 0; font-size: 13px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nb-time { flex: none; font-size: 12px; font-weight: 500; color: var(--text-weak); white-space: nowrap; }
+  .nb-go { flex: none; font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .nb-go:hover { color: var(--accent-warm); }
+  .nb-nav { flex: none; display: flex; align-items: center; gap: 4px; padding-right: 8px; }
+  .nb-dots { display: flex; align-items: center; gap: 5px; margin-right: 4px; }
+  .nb-dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: rgba(0,0,0,.18); cursor: pointer; transition: background .15s, width .15s; }
+  .nb-dot.on { background: var(--accent-warm); width: 16px; }
+  .nb-arrow {
+    width: 24px; height: 24px; border: none; background: transparent; border-radius: var(--r-pill);
+    color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .nb-arrow:hover { background: rgba(0,0,0,.06); color: var(--text-primary); }
+  .nb-close {
+    flex: none; width: 28px; height: 28px; margin-right: 8px;
+    border: none; background: transparent; border-radius: var(--r-pill);
+    color: var(--text-weak); font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .nb-close:hover { background: rgba(0,0,0,.06); color: var(--text-primary); }
+
+  /* ============================================================
+     嵌入页面卡片（决议 #5b · 受控内嵌）
+     —— 场景区分：#5 应用「跳转」仍走新标签页；#5b 页面「驻留」允许受控内嵌
+     —— 四条约束：① 白名单校验 ② 失败降级 ③ 加载态 ④ 不改变 #5
+     ============================================================ */
+  .embed-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .embed-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: var(--line); background: #fff;
+  }
+  .embed-ic { font-size: 15px; flex: none; }
+  .embed-title {
+    font-size: 13.5px; font-weight: 700; letter-spacing: -.1px; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46%;
+  }
+  .embed-host {
+    font-size: 11px; font-weight: 600; color: var(--text-weak); flex: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34%;
+  }
+  .embed-badge {
+    flex: none; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
+    background: rgba(200, 22, 29, .08); color: var(--accent);
+    font-size: 10px; font-weight: 700; letter-spacing: .125px;
+    display: inline-flex; align-items: center;
+  }
+  .embed-badge.demo { background: var(--bmp-color-success-light); color: var(--bmp-color-success-dark); }
+  .embed-sp { flex: 1; }
+  .embed-act {
+    flex: none; width: 26px; height: 26px; border: var(--line); background: #fff; border-radius: 6px;
+    color: var(--text-secondary); font-size: 13px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .embed-act:hover { color: var(--accent); border-color: var(--accent); }
+  .embed-act.danger:hover { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .embed-body { position: relative; background: #fff; overflow: hidden; }
+  .embed-frame { position: absolute; inset: 0; }
+  .embed-frame iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+  /* 加载态：骨架覆盖，加载完成后淡出（不让用户看到空白） */
+  .embed-skel {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; flex-direction: column; gap: 9px; padding: 16px;
+    background: var(--surface);
+    transition: opacity .18s ease, visibility .18s ease;
+  }
+  .embed-card.loaded .embed-skel { opacity: 0; visibility: hidden; }
+  .embed-skel .sk-line { height: 11px; border-radius: 6px; background: rgba(0,0,0,.07); position: relative; overflow: hidden; }
+  .embed-skel .sk-line::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); animation: shimmer 1.2s infinite; }
+  .embed-skel .sk-line.w60 { width: 60%; } .embed-skel .sk-line.w40 { width: 40%; } .embed-skel .sk-line.w80 { width: 80%; }
+  .embed-skel .sk-blocks { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; height: 40%; }
+  .embed-skel .sk-blocks span { flex: 1; background: rgba(0,0,0,.07); border-radius: 4px 4px 0 0; }
+  .embed-skel .sk-txt { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text-weak); }
+  .embed-skel .sp-mini { width: 12px; height: 12px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* 失败降级卡（加载失败 / 超时 / 被目标页拒绝）—— 绝不留白屏 */
+  .embed-fallback {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    padding: 18px; text-align: center; background: var(--surface);
+  }
+  .embed-card.failed .embed-frame,
+  .embed-card.failed .embed-skel { display: none; }
+  .embed-card.failed .embed-fallback { display: flex; }
+  .embed-fallback .fb-ic { font-size: 26px; }
+  .embed-fallback .fb-t { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .embed-fallback .fb-s { font-size: 12.5px; line-height: 1.5; color: var(--text-weak); max-width: 92%; }
+  .embed-fallback .fb-acts { display: flex; gap: 8px; margin-top: 5px; }
+  /* 白名单拦截（未登记域名 → 需管理员先上架） */
+  .embed-blocked {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    padding: 18px; text-align: center; background: var(--surface);
+  }
+  .embed-card.blocked .embed-frame,
+  .embed-card.blocked .embed-skel { display: none; }
+  .embed-card.blocked .embed-blocked { display: flex; }
+  .embed-blocked .bk-ic { font-size: 24px; }
+  .embed-blocked .bk-t { font-size: 13.5px; font-weight: 700; color: var(--accent); }
+  .embed-blocked .bk-s { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); max-width: 92%; }
+  /* 编辑态：高度微调 + 移除 */
+  .embed-foot { display: none; align-items: center; gap: 8px; padding: 8px 12px; border-top: var(--line); background: #fff; font-size: 12px; color: var(--text-secondary); }
+  body.editing .embed-foot { display: flex; }
+  /* 编辑态：为右上角操作浮层（.blk-ops）让位，避免与头部按钮重叠 */
+  body.editing .embed-head { padding-right: 200px; }
+  .embed-foot .hf-btn {
+    width: 26px; height: 24px; border: var(--line); background: #fff; border-radius: 6px;
+    color: var(--text-secondary); font-size: 13px; line-height: 1;
+  }
+  .embed-foot .hf-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  @media (max-width: 1180px) {
+    .hw-cols { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+    .col-right { grid-column: 1 / -1; }
+    /* 右栏已换行独立成行，不再与左/中栏并排 → 撤销"末卡拉伸"，避免无意义留白 */
+    .col > .blk:last-child { flex: 0 0 auto; }
+  }
+  @media (max-width: 860px) {
+    .hw-cols { grid-template-columns: minmax(0, 1fr); align-items: start; }
+    .topnav { display: none; }
+    /* 单栏堆叠：各栏独立成行，撤销"末卡拉伸"（避免折叠态卡片被拉高） */
+    .col > .blk:last-child { flex: 0 0 auto; }
+  }
+
+  /* 可访问性（UIUX §4.7）：尊重系统「减少动态效果」 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+
+<!-- 顶栏 -->
+<header class="topbar">
+  <div class="brand" onclick="location.href='home-v2.html'" style="cursor:pointer">
+    <span class="brand-mark">麓</span>
+    <span class="brand-name">麓邦</span>
+    <span class="brand-sep"></span>
+    <span class="brand-sub">业务中台</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+  <div class="topbar-right">
+    <button class="cmd-trigger" type="button" onclick="openCmdk()">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <span>搜索或命令</span>
+      <span class="kbd" id="kbdHint">⌘K</span>
+    </button>
+    <button class="tb-bell" type="button" title="消息通知" onclick="location.href='messages.html'">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="dot"></span>
+    </button>
+    <div class="topavatar" title="张三 · 数字化中心">张</div>
+  </div>
+</header>
+<p class="portal-route-hint" style="margin:0;padding:6px 20px;font-size:12px;color:var(--text-secondary);background:var(--surface-muted,#f6f7f9);border-bottom:1px solid var(--line,#eee)">
+  <b>入口提示</b>：外链待办 → <a href="todos.html">待办中心</a>；中台流程可站内办理 → <a href="approval.html">审批中心</a>（A4 聚合列表含两类，办理路径不同）
+</p>
+
+<div class="net-banner" id="netBanner">
+  ⚠ 网络连接异常，部分数据可能不是最新
+  <button onclick="document.getElementById('netBanner').classList.remove('show')">关闭</button>
+</div>
+
+<!-- 通知 Banner（顶栏之下 · 三栏之上；有条目才渲染，无条目完全不占位）
+     注意：容器约束（max-width/padding/上边距）挂在 .nb.on 上，隐藏时不留下任何留白 -->
+<section class="nb" id="noticeBanner" aria-label="公司通知"></section>
+
+<!-- 网络异常横幅（UIUX §4.2）：默认不渲染占位，仅演示时显示 -->
+<div class="net-banner" id="netBanner">网络连接异常，部分数据可能不是最新
+  <button onclick="toggleNetBanner()">已恢复重试</button>
+</div>
+
+<!-- 编辑模式工具条（布局引擎）
+     授权边界（决议 #6 + UIUX §5.3）：用户「个人微调」仅限【栏内排序 + 显隐 + 栅格】；
+     栏位（col）与栏宽（cols）由管理员在 UI-C-11 布局模板统一设定，用户不可改。 -->
+<div class="edit-toolbar">
+  <b>✎ 首页编辑模式</b>
+  <span style="opacity:.75">栏内拖拽排序 · 调整显隐 · 可添加「嵌入页面」卡片（决议 #5b）</span>
+  <span class="sp"></span>
+  <span class="et-note" title="栏位与栏宽由管理员在「门户运营 → 布局模板管理」统一设定">🔒 栏位 / 栏宽由管理员模板设定</span>
+  <button class="et-btn" onclick="openEmbedManager()">＋ 添加页面卡片</button>
+  <button class="et-btn" onclick="resetLayout()">恢复默认</button>
+  <button class="et-btn" onclick="exitEdit(false)">取消</button>
+  <button class="et-btn primary" onclick="exitEdit(true)">保存</button>
+</div>
+
+<!-- 三栏布局渲染区 -->
+<main class="hw">
+  <div class="hw-cols" id="layoutCols">
+    <div class="col col-left" data-col="left"></div>
+    <div class="col col-center" data-col="center"></div>
+    <div class="col col-right" data-col="right"></div>
+  </div>
+</main>
+
+<!-- ⌘K 命令栏 -->
+<div class="cmdk-mask" id="cmdkMask" onclick="if(event.target===this)closeCmdk()">
+  <div class="cmdk">
+    <div class="cmdk-in">
+      <span class="mag">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </span>
+      <input id="cmdkInput" type="text" autocomplete="off" placeholder="输入命令、应用或待办… 例如「打开招聘系统」">
+      <span class="kbd">ESC</span>
+    </div>
+    <div class="cmdk-list" id="cmdkList"></div>
+    <div class="cmdk-foot"><span>↑ ↓ 选择</span><span>Enter 执行</span><span>Esc 关闭</span></div>
+  </div>
+</div>
+
+<!-- 意图表单弹窗（AI 预填） -->
+<div class="modal-mask" id="intentMask" onclick="if(event.target===this)closeIntent()">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="intentIcon" style="font-size:20px"></span>
+      <h3 id="intentTitle">发起表单</h3>
+      <button class="modal-close" type="button" onclick="closeIntent()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-prefill" id="intentPrefill"></div>
+      <div id="intentFields"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" type="button" onclick="closeIntent()">取消</button>
+      <button class="btn-primary" type="button" onclick="submitIntent()">确认并提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- 我的订阅 · 管理弹窗（规格 3：全部应用 + 复选框） -->
+<div class="modal-mask" id="subMask" onclick="if(event.target===this)closeSubManager()">
+  <div class="modal sub-modal">
+    <div class="modal-head">
+      <span style="font-size:20px">⭐</span>
+      <h3>管理我的订阅</h3>
+      <button class="modal-close" type="button" onclick="closeSubManager()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-prefill">
+        <span>✨</span>
+        <span>勾选即订阅。订阅的应用会固定显示在首页右栏「我的订阅」，PC 与移动端<b>同步</b>。</span>
+      </div>
+      <div class="sub-list" id="subList"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" type="button" onclick="closeSubManager()">取消</button>
+      <button class="btn-primary" type="button" onclick="saveSubManager()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 添加页面卡片（嵌入页面 · 决议 #5b）弹窗 -->
+<div class="modal-mask" id="embedMask" onclick="if(event.target===this)closeEmbedManager()">
+  <div class="modal sub-modal">
+    <div class="modal-head">
+      <span style="font-size:20px">🖥</span>
+      <h3>添加页面卡片（嵌入页面）</h3>
+      <button class="modal-close" type="button" onclick="closeEmbedManager()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-prefill">
+        <span>🔒</span>
+        <span>仅允许嵌入<b>已注册应用</b>的页面（白名单校验，防钓鱼 / 越权）。页面加载失败会自动降级并保留「在新标签页打开」入口。</span>
+      </div>
+      <div class="field">
+        <label>来源<span class="req">*</span></label>
+        <select class="inp" id="embedSource" onchange="onEmbedSourceChange()"></select>
+      </div>
+      <div class="field">
+        <label>页面标题<span class="req">*</span></label>
+        <input class="inp" id="embedTitle" type="text" placeholder="如：经营驾驶舱（领导视角）">
+      </div>
+      <div class="field">
+        <label>页面 URL<span class="req">*</span></label>
+        <input class="inp" id="embedUrl" type="text" placeholder="如：https://dashboard.lubon.local/ceo 或选择上方已注册应用自动带出">
+      </div>
+      <div class="field">
+        <label>高度（px，默认 320）</label>
+        <select class="inp" id="embedHeight">
+          <option value="220">220 · 紧凑（适合右栏窄宽）</option>
+          <option value="320" selected>320 · 标准（默认）</option>
+          <option value="460">460 · 高（适合大屏）</option>
+          <option value="600">600 · 超高（整屏大屏）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>放置栏位</label>
+        <select class="inp" id="embedCol">
+          <option value="center" selected>中栏（推荐 · 大屏需宽度）</option>
+          <option value="right">右栏（窄栏 · 建议小型看板）</option>
+          <option value="left">左栏</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" type="button" onclick="closeEmbedManager()">取消</button>
+      <button class="btn-primary" type="button" onclick="saveEmbedCard()">添加并渲染</button>
+    </div>
+  </div>
+</div>
+
+<!-- 演示用 AI 助手（B7 · 可配置；产品 V1.5 仍以规则简报 + ⌘K 为主） -->
+<div class="portal-ai-panel" id="portalAiPanel" role="dialog" aria-label="AI 助手对话">
+  <div class="portal-ai-head">
+    <div>
+      <div class="pai-title">AI 助手</div>
+      <div class="pai-sub">多轮对话 · 原型 mock</div>
+      <span class="pai-route" id="portalAiRouteTag">模型路由 V2</span>
+    </div>
+    <button type="button" class="portal-ai-close" aria-label="关闭助手" onclick="togglePortalAssistant(false)">✕</button>
+  </div>
+  <div class="portal-ai-body" id="portalAiBody"></div>
+  <div class="portal-ai-quick" id="portalAiQuick">
+    <button type="button" class="portal-ai-chip" onclick="portalAiQuickSend('我今天最该先处理什么？')">今日优先</button>
+    <button type="button" class="portal-ai-chip" onclick="portalAiQuickSend('帮我总结待办')">总结待办</button>
+    <button type="button" class="portal-ai-chip" onclick="portalAiQuickSend('打开 CRM')">打开 CRM</button>
+    <button type="button" class="portal-ai-chip" onclick="portalAiQuickSend('和规则简报有什么区别？')">与简报区别</button>
+  </div>
+  <div class="portal-ai-foot">
+    <input id="portalAiInput" type="text" autocomplete="off" placeholder="输入问题…（演示路由：模型路由 V2）">
+    <button type="button" class="portal-ai-send" id="portalAiSendBtn" onclick="portalAiSend()">发送</button>
+  </div>
+</div>
+<div class="portal-ai-wrap" id="portalAiWrap">
+  <button type="button" class="portal-ai-fab" id="portalAiFab" aria-label="AI 助手" aria-expanded="false" aria-controls="portalAiPanel" onclick="togglePortalAssistant()">
+    <svg class="ic-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.5c.55 4.9 1.6 5.95 6.5 6.5-4.9.55-5.95 1.6-6.5 6.5-.55-4.9-1.6-5.95-6.5-6.5 4.9-.55 5.95-1.6 6.5-6.5Z"/>
+    </svg>
+    <svg class="ic-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+      <line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/>
+    </svg>
+  </button>
+</div>
+
+<!-- 演示工具条 -->
+<div class="demo-hint">
+  原型演示：
+  <a href="javascript:enterEdit()">进入首页编辑模式</a> ·
+  <a href="javascript:demoNetError()">模拟网络异常</a> ·
+  <a href="javascript:toggleEmptyDemo()">模拟空态（0 待办）</a> ·
+  <a href="javascript:toggleNoticeDemo()" id="noticeDemoLink">模拟无公告（验证 Banner 不占位）</a> ·
+  <a href="javascript:replayBrief()">重播今日简报（规则引擎）</a> ·
+  <a href="console.html?page=layouts">管理端 · 布局模板（栏目编排）</a> ·
+  <a href="console.html?page=portal-role-defaults">管理端 · 角色订阅与意图</a> ·
+  <a href="console.html?page=portal-apps&tab=cards">管理端 · 工作台卡片注册</a> ·
+  <a href="console.html?page=portal-apps&tab=embeds">管理端 · 嵌入页面卡片</a> ·
+  <a href="console.html?page=portal-apps&tab=intents">管理端 · 意图项</a> ·
+  <a href="console.html?page=portal-ai-assistant">管理端 · AI 助手（演示）</a> ·
+  <a href="console.html?page=portal-apps&tab=apps">管理端 · 应用入口</a> ·
+  <a href="console.html?page=notices-admin">公告/Banner</a> ·
+  <a href="javascript:toggleNetBanner()">模拟网络异常</a> ·
+  <a href="javascript:demoSessionExpired()">模拟会话过期</a> ·
+  <a href="javascript:demoNoPerm()">无权限态说明</a> ·
+  <a href="javascript:enterEdit()">编辑态加页面卡片</a>
+</div>
+
+<script src="assets/mock.js"></script>
+<script>
+/* ============================================================
+   首页重构 V2 —— 布局引擎 + 四个范式区块
+   ============================================================ */
+
+/* ---------- 顶栏导航（沿用既有导航语义，视觉本地化） ---------- */
+(function renderTopnav() {
+  const unreadMsg = MOCK.messages.filter(m => m.unread).length;
+  const nav = [
+    { key: "home", href: "home-v2.html", text: "首页" },
+    { key: "todos", href: "todos.html", text: "待办", badge: (MOCK.portalEmployeeTodos ? MOCK.portalEmployeeTodos().length : MOCK.todos.length) },
+    { key: "approval", href: "approval.html", text: "审批中心", badge: (MOCK.workflow && MOCK.workflow.approvalCenter ? MOCK.workflow.approvalCenter.todo.length : 0) },
+    { key: "messages", href: "messages.html", text: "消息", badge: unreadMsg },
+    { key: "apps", href: "apps.html", text: "应用" }
+  ];
+  document.getElementById("topnav").innerHTML = nav.map(n =>
+    `<a href="${n.href}" class="${n.key === "home" ? "active" : ""}">${n.text}${n.badge ? ` <span class="n-badge">${n.badge}</span>` : ""}</a>`
+  ).join("");
+  // 平台提示：Win 显示 Ctrl+K，Mac 显示 ⌘K
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || "")) {
+    document.getElementById("kbdHint").textContent = "Ctrl+K";
+  }
+})();
+
+/* ============================================================
+   一、布局引擎（template + user_override）—— 保留既有机制
+   ============================================================ */
+
+/* 新首页模板：三栏区块。col 表达栏位，order 表达列内顺序 */
+MOCK.layoutTemplateV2 = {
+  version: 2,
+  cols: { left: "m", right: "m" },
+  cards: [
+    { cardId: "ai-brief",        name: "今日简报",      col: "left",   order: 1, visible: true },
+    { cardId: "intent-stream",   name: "意图流",        col: "left",   order: 2, visible: true },
+    { cardId: "all-apps",        name: "全部应用",      col: "left",   order: 3, visible: false },
+    { cardId: "urgency-stream",  name: "紧迫度时间轴",  col: "center", order: 1, visible: true },
+    { cardId: "my-subscriptions",name: "我的订阅",      col: "right",  order: 1, visible: true },
+    /* 方案 A：关注动态 V1.5 不承诺运营，默认隐藏（cardId 保留兼容） */
+    { cardId: "watch-list",      name: "关注对象动态",  col: "right",  order: 2, visible: false }
+  ],
+  /* 【保留既有 cardId · 规格硬规则】不删除 V1 模板中的 5 个 cardId。
+     原因：老用户的 bmp_user_override 可能引用这些 id，删除会导致覆盖配置失配。
+     这些卡片不参与三栏渲染（renderLayout 仅渲染 cards 中 col 明确的项），
+     仅用于保住 cardId 存在、让 applyOverride 能命中。默认 visible:false（升级后默认不展示）。
+     补充：quick-stats（「一览」）于本次改造移入 legacy —— 其「待我处理 / 今天必须做 / 我发起的 / 未读消息」
+     四个数字与时间轴、AI 简报、顶栏消息角标三处重复，判定为冗余故从右栏移除；cardId 保留以免老配置失配。 */
+  legacy: [
+    { cardId: "todo-list",     name: "待办卡片",   visible: false },
+    { cardId: "notice-msg",    name: "消息/公告",  visible: false },
+    { cardId: "birthday",      name: "员工生日卡", visible: false },
+    { cardId: "data-metrics",  name: "数据指标卡", visible: false },
+    { cardId: "frequent-apps", name: "常用应用",   visible: false },
+    { cardId: "quick-stats",   name: "一览",       visible: false }
+  ]
+};
+
+/* 新卡片注册进既有 cardManifest（新卡片 = 注册 manifest，零平台改造） */
+(function registerManifest() {
+  const add = [
+    { cardId: "ai-brief",        name: "今日简报",      minGrid: 6, dataApi: "GET /v1/portal/brief?source=rule" },
+    { cardId: "intent-stream",   name: "意图流",        minGrid: 6, dataApi: "GET /v1/portal/intents" },
+    { cardId: "all-apps",        name: "全部应用",      minGrid: 6, dataApi: "GET /v1/apps" },
+    { cardId: "urgency-stream",  name: "紧迫度时间轴",  minGrid: 8, dataApi: "GET /v1/todos?group=urgency" },
+    { cardId: "my-subscriptions",name: "我的订阅",      minGrid: 6, dataApi: "GET /v1/portal/subscriptions" },
+    { cardId: "watch-list",      name: "关注对象动态",  minGrid: 6, dataApi: "GET /v1/watch/feed" },
+    { cardId: "quick-stats",     name: "快捷统计",      minGrid: 6, dataApi: "GET /v1/metrics/quick" },
+    /* 【决议 #5b】嵌入页面卡片 manifest：component 字段即「嵌入组件」，占位符 <id> 表多实例 */
+    { cardId: "embed-page",      name: "嵌入页面",      minGrid: 6, dataApi: "GET /v1/apps（白名单域名）", component: "iframe-embed（cardId: embed:<id>）", multi: true }
+  ];
+  add.forEach(m => { if (!MOCK.cardManifest.some(x => x.cardId === m.cardId)) MOCK.cardManifest.push(m); });
+})();
+
+/* 读取管理端已保存的员工模板（与 console 布局页 laySave 同源 key） */
+(function mergeSavedPortalLayout() {
+  try {
+    const raw = localStorage.getItem("portal_layout_template_tpl-employee");
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.cols) MOCK.layoutTemplateV2.cols = saved.cols;
+    if (Array.isArray(saved.cards)) MOCK.layoutTemplateV2.cards = saved.cards;
+  } catch (e) { /* 忽略损坏数据 */ }
+})();
+
+const COL_TIERS = {
+  left: { s: "252px", m: "300px", l: "352px" },
+  right: { s: "248px", m: "288px", l: "336px" }
+};
+/* 可停靠栏位（left/center/right 三栏） */
+const COLS_ALL = ["left", "center", "right"];
+const COL_LABEL = { left: "左栏", center: "中栏", right: "右栏" };
+
+let layout = JSON.parse(JSON.stringify(MOCK.layoutTemplateV2));
+let editing = false;
+let emptyDemo = false; // 演示：模拟 0 待办空态
+/* 应用 user_override（仅允许改 order / visible / col；cardId 集合不可增删）
+   兼容两种目标：① cards 中的三栏区块；② legacy 中的既有 cardId（保住老配置不失效）
+   —— legacy 项无 col/order 语义，仅吸收 visible（且始终不参与三栏渲染），故单独安全处理 */
+function applyOverride(tpl, ov) {
+  (ov.cards || []).forEach(o => {
+    const c = tpl.cards.find(x => x.cardId === o.cardId);
+    if (c) {
+      if (o.order != null) c.order = o.order;
+      if (o.visible != null) c.visible = o.visible;
+      if (o.col && COLS_ALL.indexOf(o.col) >= 0) c.col = o.col;   /* 兼容 left/center/right */
+      return;
+    }
+    // legacy：命中既有 cardId，安全吸收（不写 col/order，避免误改三栏布局）
+    const lc = (tpl.legacy || []).find(x => x.cardId === o.cardId);
+    if (lc) {
+      if (o.visible != null) lc.visible = o.visible;
+      if (o.order != null) lc.order = o.order;
+    }
+  });
+  if (ov.cols) { if (COL_TIERS[ov.cols.left]) tpl.cols.left = ov.cols.left; if (COL_TIERS[ov.cols.right]) tpl.cols.right = ov.cols.right; }
+}
+function loadOverride() {
+  try { const s = localStorage.getItem("bmp_user_override"); if (s) applyOverride(layout, JSON.parse(s)); } catch (e) {}
+}
+/* 注意：嵌入卡片实例的载入（loadEmbedCards）在文件底部初始化段执行——
+   因其依赖后文声明的 EMBED_KEY 常量（const 存在 TDZ），此处不可提前调用。 */
+loadOverride();
+
+/* ============================================================
+   二、只读数据源（不改 mock.js，局部扩展）
+   ============================================================ */
+
+/* 关注对象动态 */
+const WATCH = [
+  { icon: "🏢", name: "华宇科技", act: "合同审批已过销售总监节点，进入法务审核", time: "今天 11:40" },
+  { icon: "📑", name: "恒信集团 年度框架", act: "折扣审批被驳回：力度超授权上限（≤10%）", time: "昨天 19:35" },
+  { icon: "🧑‍💼", name: "高级前端工程师 Offer", act: "HRBP 复核中，等待你的终审", time: "今天 11:02" },
+  { icon: "🖥", name: "研发中心服务器扩容", act: "预算科目调整，单据已作废", time: "今天 10:22" }
+];
+
+/** 意图流：角色默认 + 个人覆盖（mock.js · getEffectiveIntents） */
+function getActiveIntents() {
+  if (MOCK.getEffectiveIntents) return MOCK.getEffectiveIntents();
+  return MOCK.getPortalIntents()
+    .filter(it => it.enabled !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+/** 是否仍使用角色默认（未写入个人 key），用于原型提示 */
+function subsFromRoleDefault() {
+  return MOCK.getEffectiveSubscriptions ? MOCK.getEffectiveSubscriptions().fromRoleDefault : false;
+}
+function intentsFromRoleDefault() {
+  return MOCK.getEffectiveIntentKeys ? MOCK.getEffectiveIntentKeys().fromRoleDefault : false;
+}
+window.addEventListener("bmp:intents-updated", () => { renderLayout(); });
+window.addEventListener("bmp:role-defaults-updated", () => { renderLayout(); });
+window.addEventListener("bmp:user-intents-updated", () => { renderLayout(); });
+
+/* 各意图表单的字段定义 + 规则预填（V1.5 方案 A，非大模型） */
+const INTENT_FORMS = {
+  launch_approval: {
+    title: "发起一个审批", icon: "🚀",
+    prefill: "识别到你的高频流程，已列出可发起项；选择后 AI 将按你的历史数据预填表单。",
+    fields: [
+      { k: "flow", label: "流程类型", type: "select", req: true, value: "contract_approval", options: [
+        { v: "contract_approval", t: "合同审批流" }, { v: "purchase_approval", t: "采购审批流" },
+        { v: "leave_approval", t: "请假审批流" }, { v: "perm_apply", t: "权限申请审批流" } ] }
+    ],
+    tip: "提交后进入「审批中心 → 我发起」查看进度"
+  },
+  find_person: {
+    title: "找人", icon: "🔎",
+    prefill: "输入姓名或部门，AI 会优先匹配你协作最多的同事。",
+    fields: [
+      { k: "kw", label: "姓名 / 部门 / 岗位", type: "text", req: true, value: "产品经理", ph: "如：王经理 / 销售部 / 前端工程师" }
+    ],
+    tip: "结果来自统一组织人员主数据"
+  },
+  leave_approval: {
+    title: "请假申请", icon: "🌴",
+    prefill: "AI 已按你的年假余额预填：剩余年假 <b>5 天</b>，默认请 1 天、直属上级为「刘总监」。",
+    fields: [
+      { k: "leaveType", label: "请假类型", type: "select", req: true, value: "annual", options: [
+        { v: "annual", t: "年假" }, { v: "personal", t: "事假" }, { v: "sick", t: "病假" } ] },
+      { k: "startTime", label: "开始时间", type: "date", req: true, value: "2026-09-25" },
+      { k: "endTime", label: "结束时间", type: "date", req: true, value: "2026-09-25" },
+      { k: "duration", label: "时长", type: "text", value: "1 天" },
+      { k: "approver", label: "直属上级", type: "text", value: "刘总监（自动解析）" },
+      { k: "reason", label: "事由", type: "textarea", value: "个人事务" }
+    ],
+    tip: "提交后进入「审批中心 → 我发起」"
+  },
+  seal_apply: {
+    title: "用章申请", icon: "🔖",
+    prefill: "AI 已关联你最近一份合同「华宇科技采购合同」，可直接引用。",
+    fields: [
+      { k: "sealType", label: "印章类型", type: "select", req: true, value: "contract", options: [
+        { v: "contract", t: "合同章" }, { v: "official", t: "公章" }, { v: "legal", t: "法人章" } ] },
+      { k: "refDoc", label: "关联单据", type: "text", value: "华宇科技采购合同 HT-2026-0918" },
+      { k: "reason", label: "用章事由", type: "textarea", value: "合同签署用印" }
+    ],
+    tip: "用章需法务复核，预计 2 小时"
+  }
+};
+
+/* ============================================================
+   二·补、我的订阅（规格 3）—— 用户主动订阅的应用
+   —— 与「常用应用」（按频次自动排序，无订阅语义）区分：这里是显式的订阅关系
+   —— 数据：不改 mock.js；订阅状态持久化到 localStorage（key: bmp_my_subscriptions）
+   —— 与移动端同源：两端读写同一个 key、同一份默认订阅清单（应用名完全一致）
+   ============================================================ */
+const SUB_KEY = MOCK.SUB_KEY || "bmp_my_subscriptions";
+
+/* 读取订阅：个人 key 优先；否则角色默认（portal_role_defaults_{roleId}） */
+function loadSubscriptions() {
+  if (MOCK.getEffectiveSubscriptions) return MOCK.getEffectiveSubscriptions().names.slice();
+  try {
+    const raw = localStorage.getItem(SUB_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.filter(x => typeof x === "string");
+    }
+  } catch (e) { /* 解析失败 */ }
+  return ["CRM 客户管理", "招聘系统", "费用报销", "数据报表"];
+}
+/* 写入订阅：目录 ∩ 角色可选范围（原型校验） */
+function saveSubscriptions(list) {
+  if (MOCK.saveUserSubscriptions) return MOCK.saveUserSubscriptions(list);
+  const valid = (list || []).filter(n => portalCatalog().some(a => a.name === n));
+  const uniq = valid.filter((n, i) => valid.indexOf(n) === i);
+  try { localStorage.setItem(SUB_KEY, JSON.stringify(uniq)); } catch (e) {}
+  return uniq;
+}
+/* 按订阅顺序取应用对象（找不到的自动跳过） */
+function portalCatalog() {
+  return MOCK.getPortalCatalogApps ? MOCK.getPortalCatalogApps() : MOCK.apps;
+}
+function appsOfSubs(list) {
+  const names = list || loadSubscriptions();
+  const cat = portalCatalog();
+  return names.map(n => cat.find(a => a.name === n)).filter(Boolean);
+}
+
+/* ============================================================
+   三、紧迫度分组（时间轴组织主轴）
+   ------------------------------------------------------------
+   权威口径：UIUX §5.3 权重表（三组，四维同步衰减）
+     ① 今天必须做：urgency===2 或 overdue 或 remainHours ≤ URGENT_HOURS(4)
+     ② 本周待办  ：remainHours ≤ WEEK_HOURS(168) 且未落入上一组
+     ③ 知悉即可  ：urgency===0 且 remainHours > 24（兜底）
+   阈值抽为常量，与「变红阈值」共用同一 URGENT_HOURS，避免两套时间概念打架。
+   ============================================================ */
+const URGENT_HOURS = 4;    // 紧急/变红阈值（R-3 裁定：与分组统一取 4h）
+const WEEK_HOURS = 168;    // 本周待办阈值（7 天）
+function groupOf(t) {
+  if (t.urgency === 2 || t.overdue || t.remainHours <= URGENT_HOURS) return "today";
+  if (t.remainHours <= WEEK_HOURS) return "week";
+  return "know";
+}
+function portalEmployeeTodoList() {
+  if (emptyDemo) return [];
+  return MOCK.portalEmployeeTodos ? MOCK.portalEmployeeTodos() : MOCK.todos;
+}
+function todosByGroup() {
+  const list = portalEmployeeTodoList();
+  return {
+    today: list.filter(t => groupOf(t) === "today").sort((a, b) => a.remainHours - b.remainHours),
+    week: list.filter(t => groupOf(t) === "week").sort((a, b) => a.remainHours - b.remainHours),
+    know: list.filter(t => groupOf(t) === "know").sort((a, b) => a.remainHours - b.remainHours),
+    all: list
+  };
+}
+function remainText(t) {
+  if (t.overdue) return "已超时 " + Math.abs(t.remainHours) + " 小时";
+  if (t.remainHours <= 4) return "还剩 " + t.remainHours + " 小时";
+  return "剩余 " + t.remainHours + " 小时";
+}
+function deadlineText(t) {
+  const base = new Date("2026-09-22T12:00:00");
+  const d = new Date(base.getTime() + t.remainHours * 3600 * 1000);
+  const hh = d.getHours();
+  const ampm = hh < 12 ? "上午" : (hh < 18 ? "下午" : "晚上");
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  const dayDiff = d.getDate() - base.getDate();
+  const day = dayDiff === 0 ? "今天" : (dayDiff === 1 ? "明天" : "");
+  return day + ampm + h12 + "点前";
+}
+function shortName(t) {
+  // 从标题提取业务名（如「华宇科技采购合同」）
+  const m = t.title.match(/】(.+?)( ¥|$)/);
+  return m ? m[1] : t.title.replace(/^【.+?】/, "");
+}
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+/* ============================================================
+   四、四个范式区块的渲染器（BLOCK_RENDERERS，对应 CARD_RENDERERS）
+   ============================================================ */
+const BLOCK_RENDERERS = {
+
+  /* ① 今日简报 —— V1.5 方案 A：规则引擎（GET /v1/portal/brief · source=rule），无 AI 徽标 */
+  "ai-brief": () => {
+    if (briefGenerating) {
+      return `<div class="brief-card brief-skeleton">
+        <div class="brief-head"><span class="brief-stamp">今日简报</span><span class="brief-stamp">生成中…</span></div>
+        <div class="skr l w90"></div><div class="skr l w70"></div><div class="skr l w50"></div>
+      </div>`;
+    }
+    const g = todosByGroup();
+    if (!g.all.length) {
+      return `<div class="brief-card fadein">
+        <div class="brief-head"><span class="brief-stamp" style="margin-left:0">今日简报</span><span class="brief-stamp">规则排序</span></div>
+        <p class="brief-text">早上好，张三。<b>今天没有需要你处理的待办</b>，可以专注手头的事。有 3 条未读消息可以顺路看看。</p>
+        <div class="brief-acts">
+          <button class="btn-ghost" onclick="location.href='messages.html'">看看未读消息</button>
+        </div>
+      </div>`;
+    }
+    const urgent = g.today.length ? g.today : g.week;
+    const first = urgent[0];
+    const second = urgent[1];
+    let sentence = "早上好，张三。今天有 <b class='hl-accent'>" + urgent.length + " 件事</b>要先处理：";
+    if (second) {
+      sentence += "<b>" + esc(shortName(first)) + "</b> " + (first.overdue ? "已超时 " + Math.abs(first.remainHours) + " 小时" :
+        (first.remainHours <= 4 ? "今天" + deadlineText(first).replace(/^今天/, "") + "要过（还剩 " + first.remainHours + " 小时）" : deadlineText(first) + "要处理"));
+      sentence += "，<b>" + esc(shortName(second)) + "</b> " + (second.overdue ? "已等你 " + Math.abs(second.remainHours) + " 小时" : "剩余 " + second.remainHours + " 小时");
+    } else {
+      sentence += "<b>" + esc(shortName(first)) + "</b> " + remainText(first);
+    }
+    const rest = g.all.length - urgent.length;
+    sentence += "。" + (rest > 0 ? "其余 <b>" + rest + " 件</b>可以晚点看。" : "这就是今天全部，处理完即可收工。");
+
+    const lines = urgent.map(t =>
+      `<div class="brief-line"><span class="nm">${esc(shortName(t))}</span><span class="tagline">${esc(t.source)} · ${remainText(t)}</span></div>`
+    ).join("");
+
+    return `<div class="brief-card fadein">
+      <div class="brief-head"><span class="brief-stamp" style="margin-left:0">今日简报</span><span class="brief-stamp">规则排序 · ${g.all.length} 条待办</span></div>
+      <p class="brief-text">${sentence}</p>
+      <div class="brief-detail" id="briefDetail" hidden>
+        ${lines}
+        <div class="brief-line"><span class="nm" style="color:var(--text-weak);font-weight:500">已按紧迫度排序，点中栏可逐条处理 →</span></div>
+      </div>
+      <div class="fs-12" style="color:var(--text-weak);margin-top:4px">数据来源：统一待办聚合 · 接口口径 GET /v1/portal/brief（source=rule）</div>
+      <div class="brief-acts">
+        <button class="btn-primary" onclick="handleFirstUrgent()">立即处理</button>
+        <button class="btn-ghost" id="briefAllBtn" onclick="toggleBriefDetail(this)">看全部</button>
+      </div>
+    </div>`;
+  },
+
+  /* ② 意图流 —— 应用导航 → 意图流 */
+  "intent-stream": () => {
+    const items = getActiveIntents().map(it =>
+      `<div class="intent-item" onclick="runIntent('${it.key}')">
+        <span class="intent-ic">${it.icon}</span>
+        <div class="intent-txt"><div class="intent-name">${esc(it.name)}</div><div class="intent-sub">${esc(it.sub)}</div></div>
+        <span class="intent-go">→</span>
+      </div>`).join("");
+    const roleHint = intentsFromRoleDefault()
+      ? `<span class="sec-note" title="未保存个人意图时沿用管理员为当前角色配置的默认项">来自角色默认</span>`
+      : `<span class="sec-note">个人已定制</span>`;
+    return `<div class="board plain">
+      <div class="sec-head"><h2>我要做什么</h2>${roleHint}<span class="sec-note">按意图直达 · 非按系统</span></div>
+      <div class="intent-list">${items || `<div class="sub-empty"><span class="se-s">管理员尚未为本角色配置快捷入口</span></div>`}</div>
+    </div>`;
+  },
+
+  /* 全部应用（降级为次级入口，折叠） */
+  "all-apps": () => {
+    const apps = [...MOCK.apps].sort((a, b) => b.freq - a.freq);
+    const cells = apps.map(a =>
+      `<div class="app-cell" onclick="openApp('${esc(a.name)}')" title="${esc(a.name)}">
+        <span class="ic">${a.icon}</span><span class="nm">${esc(a.name)}</span>
+      </div>`).join("");
+    return `<div class="board plain">
+      <button class="apps-toggle" id="appsToggle" onclick="toggleApps(this)">
+        <span>🗂 全部应用</span>
+        <span class="cnt">${apps.length} 个 · 降级为次级入口</span>
+        <span class="caret">›</span>
+      </button>
+      <div class="apps-panel" id="appsPanel">
+        <div class="apps-grid">${cells}
+          <div class="app-cell" onclick="location.href='apps.html'"><span class="ic">➕</span><span class="nm">应用中心</span></div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  /* ③ 紧迫度时间轴流 —— 均匀栅格 → 时间轴 + 视觉权重 */
+  "urgency-stream": () => {
+    const g = todosByGroup();
+    if (!g.all.length) {
+      return `<div class="board plain">
+        <div class="stream-head"><h2>今天的时间轴</h2><span class="stream-sub">按紧迫度排序</span></div>
+        <div class="stream-empty">
+          <div class="ico">🌤</div>
+          <div class="t1">今天没有需要你处理的待办</div>
+          <div class="t2">收件箱已清空。你可以用左侧「我要做什么」发起新流程，或看看关注对象的动态。</div>
+        </div>
+      </div>`;
+    }
+    const row = (t) => {
+      const hot = t.overdue || t.remainHours <= 6;
+      return `<div class="row">
+        <span class="r-ic">${iconOfBiz(t.bizType)}</span>
+        <div class="r-main">
+          <div class="r-title">${esc(t.title)}</div>
+          <div class="r-meta"><span class="src">${esc(t.source)}</span>${t.handleMode === "internal" ? ' · <span class="tag tag-primary" style="font-size:11px;height:18px">站内办理</span>' : ""} · ${esc(t.submitter)} 提交 · ${esc(t.time)}</div>
+        </div>
+        <span class="r-remain ${hot ? "hot" : ""}">${remainText(t)}</span>
+        <div class="r-acts">
+          <button class="btn-pill done" onclick="markDone(${JSON.stringify(t.id)})">标记完成</button>
+          <button class="btn-pill ${hot ? "solid" : ""}" onclick="handleTodo(${JSON.stringify(t.id)})">${t.handleMode === "internal" ? "去审批中心" : "去处理"}</button>
+        </div>
+      </div>`;
+    };
+    const section = (cls, title, dotStyle, list) => {
+      if (!list.length) return "";
+      return `<div class="group ${cls}">
+        <div class="group-head">
+          <span class="g-dot" style="${dotStyle}"></span>
+          <span class="g-title">${title}</span>
+          <span class="g-cnt">${list.length} 项</span>
+        </div>
+        ${list.map(row).join("")}
+      </div>`;
+    };
+    return `<div class="board plain">
+      <div class="stream-head"><h2>今天的时间轴</h2><span class="stream-sub">按紧迫度分组 · 视觉权重递减</span></div>
+      ${section("grp-today", "今天必须做", "", g.today)}
+      ${section("grp-week", "本周待办", "", g.week)}
+      ${section("grp-know", "知悉即可", "", g.know)}
+    </div>`;
+  },
+
+  /* 右栏：我的订阅（规格 3）—— 主动订阅的应用；空态给出引导 */
+  "my-subscriptions": () => {
+    const subs = appsOfSubs();
+    const head = `<div class="sec-head">
+        <h2>我的订阅</h2>
+        ${subsFromRoleDefault() ? `<span class="sec-note" title="未保存个人订阅时使用角色默认">来自角色默认</span>` : `<span class="sec-note">个人已定制</span>`}
+        <button class="sub-manage" type="button" onclick="openSubManager()">管理</button>
+      </div>`;
+    if (!subs.length) {
+      return `<div class="board">
+        ${head}
+        <div class="sub-empty" onclick="openSubManager()">
+          <span class="se-ic">➕</span>
+          <span class="se-t">还没有订阅应用</span>
+          <span class="se-s">点「管理」添加，把常用入口钉在这里</span>
+        </div>
+      </div>`;
+    }
+    const cells = subs.map(a =>
+      `<button class="sub-cell" type="button" onclick="openPortalApp('${esc(a.name)}')" title="${esc(a.name)}${a.kind === "workflow" ? " · 站内发起" : ""}">
+        <span class="sc-ic">${a.icon}</span>
+        <span class="sc-nm">${esc(a.name)}</span>
+      </button>`).join("");
+    return `<div class="board">
+      ${head}
+      <div class="sub-grid">${cells}</div>
+    </div>`;
+  },
+
+  /* 右栏：关注对象动态 */
+  "watch-list": () => {
+    const items = WATCH.map(w =>
+      `<div class="watch-item">
+        <span class="watch-ic">${w.icon}</span>
+        <div class="watch-body"><div class="watch-name">${esc(w.name)}</div><div class="watch-act">${esc(w.act)}</div><div class="watch-time">${esc(w.time)}</div></div>
+      </div>`).join("");
+    return `<div class="board">
+      <div class="sec-head"><h2>关注动态</h2><span class="sec-note">你关注的对象</span></div>
+      ${items}
+    </div>`;
+  },
+
+  /* 右栏：快捷统计（轻量） */
+  "quick-stats": () => {
+    const g = todosByGroup();
+    const unread = MOCK.messages.filter(m => m.unread).length;
+    const row = (k, v, hot) => `<div class="stat-row"><span class="k">${k}</span><span class="v ${hot ? "hot" : ""}">${v}</span></div>`;
+    return `<div class="board">
+      <div class="sec-head"><h2>一览</h2></div>
+      ${row("待我处理", g.all.length, g.today.length > 0)}
+      ${row("今天必须做", g.today.length, g.today.length > 0)}
+      ${row("我发起的", MOCK.todosInitiated.length)}
+      ${row("未读消息", unread)}
+    </div>`;
+  }
+};
+
+function iconOfBiz(bizType) {
+  const map = { contract_approval: "📄", resume_screen: "🧑‍💼", purchase_approval: "🖥", leave_approval: "🌴", discount_approval: "🏷", okr_review: "🎯" };
+  return map[bizType] || "📌";
+}
+
+/* ============================================================
+   四·补、嵌入页面卡片（决议 #5b · 受控内嵌）
+   —— 场景：#5「应用跳转」仍走新标签页（不改动）；#5b「页面驻留」允许受控内嵌
+   —— 四条约束：① 白名单校验 ② 失败降级（不白屏）③ 加载态 ④ 不改变 #5
+   —— 多实例：cardId 形如 "embed:<唯一id>"，applyOverride 按 cardId 精确匹配，互不干扰
+   —— 持久化：单独 localStorage key「bmp_embed_cards」（含 params）；order/visible/col 仍走 user_override
+   ============================================================ */
+const EMBED_KEY = "bmp_embed_cards";
+const EMBED_TIMEOUT_MS = 8000; // 8s 超时兜底 → 降级（决议 #5b 建议值）
+const EMBED_MIN_SKELETON_MS = 600; // 骨架最短展示时长：保证加载态肉眼可见（演示用）
+
+/* 白名单：只有「已注册应用」登记过的域名才允许内嵌（防钓鱼 / 越权）。
+   原型环境无真实后端，故以预置域名 + 演示用途白名单模拟（MOCK.apps 无 url 字段，无法直接取域名）。 */
+const EMBED_WHITELIST_HOSTS = [
+  "dashboard.lubon.local", "bi.lubon.local", "bi.lubon.internal",
+  "crm.lubon.local", "oa.lubon.local", "hr.lubon.local",
+  "report.lubon.local", "portal.lubon.local"
+];
+/* 白名单判定：精确匹配 host（含子域通配，如 x.bi.lubon.internal 亦放行） */
+function hostOf(url) {
+  try { return new URL(url).host; } catch (e) { return ""; }
+}
+function isWhitelisted(url) {
+  const host = String(hostOf(url) || "").toLowerCase();
+  if (!host) return false;
+  return EMBED_WHITELIST_HOSTS.some(h => host === h || host.endsWith("." + h));
+}
+/* 由 URL 反推演示内容 key：URL 与某个演示来源精确匹配时取其 demo，否则无演示内容（走真实 src）。
+   避免「用户手改 URL 但下拉仍停在旧来源」导致演示内容与 URL 不符。 */
+function demoForUrl(url, sources) {
+  const list = sources || EMBED_SOURCES;
+  const hit = list.find(s => s.url && s.url === url);
+  return hit ? (hit.demo || "") : "";
+}
+
+/* 「已注册应用」来源清单（含自动带出的 URL 与演示内容 key）——供添加弹窗下拉 */
+const EMBED_SOURCES = [
+  { label: "经营驾驶舱（已注册应用 · Lubon BI）",  icon: "🖥", url: "https://dashboard.lubon.local/ceo",       demo: "cockpit" },
+  { label: "部门数据看板（已注册应用 · Lubon BI）", icon: "📊", url: "https://bi.lubon.local/dept",              demo: "dept" },
+  { label: "销售漏斗报表（已注册应用 · CRM）",      icon: "📈", url: "https://crm.lubon.local/report/funnel",    demo: "funnel" },
+  { label: "演示：不可达页面（触发失败降级）",      icon: "⚠", url: "https://bi.lubon.local/offline",           demo: "fail" },
+  { label: "自定义 URL（手动填写）",                icon: "🔗", url: "",                                         demo: "" }
+];
+
+/* ------------------------------------------------------------------
+   零依赖演示：用 srcdoc 内联「被嵌入页面」的模拟内容
+   —— 原型不可依赖真实外部 URL（局域网 BI 地址不可达），故对演示来源注入内联 HTML，
+      真实 URL 则走 src（原型环境下不可达 → 由 8s 超时兜底降级，正好演示降级链路）。
+   —— 内容全部纯 CSS / 内联 SVG 绘制，含 Notion 暖白 Token 与麓邦红强调，无任何外链。
+   ------------------------------------------------------------------ */
+function embedDemoDoc(key) {
+  if (key === "cockpit") {
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+      body{margin:0;background:#0e1116;color:#e9e7e4;font-family:Inter,-apple-system,"PingFang SC",sans-serif;padding:14px 16px;box-sizing:border-box}
+      .hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+      .dot{width:8px;height:8px;border-radius:50%;background:#E4484F;box-shadow:0 0 0 4px rgba(228,72,79,.18)}
+      .ttl{font-size:13px;font-weight:700;letter-spacing:.2px}
+      .live{margin-left:auto;font-size:10px;color:#2FBF71;border:1px solid rgba(47,191,113,.35);padding:2px 7px;border-radius:99px}
+      .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+      .kpi{background:#171b22;border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:10px 11px}
+      .kpi .k{font-size:10px;color:#8a857f;letter-spacing:.4px}
+      .kpi .v{font-size:20px;font-weight:800;letter-spacing:-.5px;margin-top:3px}
+      .kpi .d{font-size:10px;margin-top:2px}
+      .up{color:#2FBF71}.down{color:#E4484F}
+      .charts{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+      .panel{background:#171b22;border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:10px 11px}
+      .panel .pt{font-size:10px;color:#8a857f;letter-spacing:.4px;margin-bottom:8px}
+      svg{display:block;width:100%;height:auto}
+    </style></head><body>
+      <div class="hdr"><span class="dot"></span><span class="ttl">经营驾驶舱 · 集团视角</span><span class="live">● 实时</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">本月营收</div><div class="v">¥ 4,286<small style="font-size:11px;font-weight:600"> 万</small></div><div class="d up">▲ 12.4% 环比</div></div>
+        <div class="kpi"><div class="k">订单数</div><div class="v">1,842</div><div class="d up">▲ 8.1% 环比</div></div>
+        <div class="kpi"><div class="k">毛利率</div><div class="v">31.6<small style="font-size:11px;font-weight:600">%</small></div><div class="d down">▼ 1.2pt 环比</div></div>
+      </div>
+      <div class="charts">
+        <div class="panel"><div class="pt">近 8 周营收趋势（万元）</div>
+          <svg viewBox="0 0 320 110" preserveAspectRatio="none">
+            <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4484F" stop-opacity=".55"/><stop offset="1" stop-color="#E4484F" stop-opacity="0"/></linearGradient></defs>
+            <polyline points="0,88 46,72 92,78 138,54 184,60 230,38 276,46 320,24" fill="none" stroke="#E4484F" stroke-width="2"/>
+            <polygon points="0,88 46,72 92,78 138,54 184,60 230,38 276,46 320,24 320,110 0,110" fill="url(#g1)"/>
+          </svg>
+        </div>
+        <div class="panel"><div class="pt">渠道占比</div>
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="42" fill="none" stroke="#2b313b" stroke-width="16"/>
+            <circle cx="60" cy="60" r="42" fill="none" stroke="#E4484F" stroke-width="16" stroke-dasharray="132 264" transform="rotate(-90 60 60)" stroke-linecap="round"/>
+            <circle cx="60" cy="60" r="42" fill="none" stroke="#dd5b00" stroke-width="16" stroke-dasharray="66 264" transform="rotate(90 60 60)" stroke-linecap="round"/>
+            <text x="60" y="58" text-anchor="middle" fill="#e9e7e4" font-size="15" font-weight="800">50%</text>
+            <text x="60" y="73" text-anchor="middle" fill="#8a857f" font-size="8">直销</text>
+          </svg>
+        </div>
+      </div>
+    </body></html>`;
+  }
+  if (key === "dept") {
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+      body{margin:0;background:#ffffff;color:rgba(0,0,0,.95);font-family:Inter,-apple-system,"PingFang SC",sans-serif;padding:13px 14px;box-sizing:border-box}
+      .t{font-size:12px;font-weight:700;margin-bottom:9px;letter-spacing:-.1px}
+      .rows{display:flex;flex-direction:column;gap:9px}
+      .r{display:flex;align-items:center;gap:8px}
+      .r .nm{width:58px;font-size:11px;color:#615d59;flex:none}
+      .bar{flex:1;height:9px;border-radius:99px;background:#f0eeeb;overflow:hidden}
+      .bar > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#dd5b00,#C8161D)}
+      .r .vv{width:52px;text-align:right;font-size:11px;font-weight:700;flex:none}
+    </style></head><body>
+      <div class="t">研发中心 · 本月人效</div>
+      <div class="rows">
+        <div class="r"><span class="nm">交付项目</span><span class="bar"><i style="width:86%"></i></span><span class="vv">18 个</span></div>
+        <div class="r"><span class="nm">需求吞吐</span><span class="bar"><i style="width:72%"></i></span><span class="vv">142</span></div>
+        <div class="r"><span class="nm">缺陷率</span><span class="bar"><i style="width:34%;background:linear-gradient(90deg,#2FBF71,#16A34A)"></i></span><span class="vv">0.8%</span></div>
+        <div class="r"><span class="nm">工时投入</span><span class="bar"><i style="width:64%"></i></span><span class="vv">3,120h</span></div>
+      </div>
+    </body></html>`;
+  }
+  if (key === "funnel") {
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+      body{margin:0;background:#ffffff;color:rgba(0,0,0,.95);font-family:Inter,-apple-system,"PingFang SC",sans-serif;padding:14px 16px;box-sizing:border-box}
+      .t{font-size:12px;font-weight:700;margin-bottom:12px}
+      .fn{display:flex;flex-direction:column;gap:8px}
+      .st{display:flex;align-items:center;gap:10px}
+      .st .lb{width:74px;font-size:11px;color:#615d59;flex:none}
+      .st .bx{height:22px;border-radius:6px;background:linear-gradient(90deg,#C8161D,#dd5b00);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;padding:0 8px;min-width:36px}
+      .st .pc{margin-left:auto;font-size:10px;font-weight:700;color:#a39e98;flex:none}
+    </style></head><body>
+      <div class="t">销售漏斗 · 本月</div>
+      <div class="fn">
+        <div class="st"><span class="lb">线索</span><span class="bx" style="width:88%">1,240</span><span class="pc">100%</span></div>
+        <div class="st"><span class="lb">商机</span><span class="bx" style="width:62%">486</span><span class="pc">39%</span></div>
+        <div class="st"><span class="lb">报价</span><span class="bx" style="width:42%">228</span><span class="pc">18%</span></div>
+        <div class="st"><span class="lb">成单</span><span class="bx" style="width:24%">94</span><span class="pc">7.6%</span></div>
+      </div>
+    </body></html>`;
+  }
+  return ""; // 无演示内容（真实 URL）
+}
+
+/* ------------------------------------------------------------------
+   渲染：嵌入页面卡片（供 blockHtml 调用）
+   ------------------------------------------------------------------ */
+function renderEmbedBlock(c) {
+  const p = c.params || {};
+  const title = p.title || c.name || "嵌入页面";
+  const h = Math.max(160, Number(p.height) || 320);
+  const icon = p.icon || "🖥";
+  const url = p.url || "";
+  const demoKey = p.demo || "";
+  const wl = isWhitelisted(url);
+  const host = hostOf(url);
+  const badge = demoKey === "fail" ? "降级演示" : (demoKey ? "演示" : "内嵌");
+
+  return `<div class="board embed-card" data-embed="${esc(c.cardId)}" data-url="${esc(url)}" data-demo="${esc(demoKey)}" data-wl="${wl ? "1" : "0"}">
+    <div class="embed-head">
+      <span class="embed-ic">${esc(icon)}</span>
+      <span class="embed-title" title="${esc(title)}">${esc(title)}</span>
+      ${host ? `<span class="embed-host" title="${esc(url)}">${esc(host)}</span>` : ``}
+      <span class="embed-sp"></span>
+      <span class="embed-badge ${demoKey && demoKey !== "fail" ? "demo" : ""}">${esc(badge)}</span>
+      <button class="embed-act" title="在新标签页打开（决议 #5）" onclick="openEmbedExternal('${esc(c.cardId)}')">↗</button>
+      ${editing ? `<button class="embed-act danger" title="移除该嵌入卡片" onclick="removeEmbedCard('${esc(c.cardId)}')">✕</button>` : ``}
+    </div>
+    <div class="embed-body" style="height:${h}px">
+      <div class="embed-frame"><iframe title="${esc(title)}" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe></div>
+      <div class="embed-skel">
+        <div class="sk-line w60"></div><div class="sk-line w80"></div><div class="sk-line w40"></div>
+        <div class="sk-blocks"><span style="height:52%"></span><span style="height:78%"></span><span style="height:40%"></span><span style="height:92%"></span><span style="height:64%"></span></div>
+        <div class="sk-txt"><span class="sp-mini"></span>正在加载 ${esc(title)}…</div>
+      </div>
+      <div class="embed-fallback">
+        <span class="fb-ic">🔌</span>
+        <span class="fb-t">无法在首页内嵌显示</span>
+        <span class="fb-s">「${esc(title)}」可能被目标页拒绝内嵌（X-Frame-Options）、加载超时或网络不可达。你可以在新标签页打开它。</span>
+        <span class="fb-acts">
+          <button class="btn-pill solid" onclick="openEmbedExternal('${esc(c.cardId)}')">在新标签页打开</button>
+          <button class="btn-pill" onclick="retryEmbed('${esc(c.cardId)}')">重试</button>
+        </span>
+      </div>
+      <div class="embed-blocked">
+        <span class="bk-ic">🚫</span>
+        <span class="bk-t">该域名未在应用注册中登记</span>
+        <span class="bk-s">「${esc(host || url)}」不在嵌入白名单内，无法在首页内嵌。需管理员先在「应用注册」上架该域名后，方可嵌入。</span>
+        <span class="fb-acts"><button class="btn-pill" onclick="openEmbedExternal('${esc(c.cardId)}')">仍要新标签页打开</button></span>
+      </div>
+    </div>
+    <div class="embed-foot">
+      <span>高度</span>
+      <button class="hf-btn" title="降低" onclick="adjustEmbedHeight('${esc(c.cardId)}',-60)">−</button>
+      <span style="font-weight:700;color:var(--text-primary)">${h}px</span>
+      <button class="hf-btn" title="增高" onclick="adjustEmbedHeight('${esc(c.cardId)}',60)">＋</button>
+      <span class="embed-sp"></span>
+      <span style="color:var(--text-weak)">${wl ? "✅ 白名单已登记" : "⚠ 域名未登记"}</span>
+    </div>
+  </div>`;
+}
+
+/* 渲染后绑定 iframe：注入 srcdoc / src、挂 load / error / 8s 超时
+   —— 判断策略：onload 成功 → .loaded（撤骨架）；onerror → .failed；8s 未 onload → .failed。
+      被 X-Frame-Options 拒绝时浏览器多会触发 onload（此时 iframe 内为浏览器错误页，跨域无法读取），
+      因此原型额外以「超时兜底」与「演示失败来源」两条路径保证降级可见、绝不留白屏。 */
+function bindEmbedFrames() {
+  document.querySelectorAll(".embed-card").forEach(card => {
+    const iframe = card.querySelector("iframe");
+    if (!iframe) return;
+    const demoKey = card.dataset.demo;
+    const wl = card.dataset.wl === "1";
+
+    // ① 白名单未命中 → 直接拦截（不发起任何请求）
+    if (!wl) { card.classList.add("blocked"); return; }
+    // ② 演示失败来源 → 直接降级（模拟被拒绝 / 超时）
+    if (demoKey === "fail") { card.classList.add("failed"); return; }
+
+    const clearT = () => { if (card._embedT) { clearTimeout(card._embedT); card._embedT = null; } };
+    /* 成功：保证骨架至少展示 EMBED_MIN_SKELETON_MS 再撤（演示时加载态肉眼可见，不留白屏） */
+    const ok = () => {
+      clearT();
+      const el = Date.now() - (card._embedStart || 0);
+      const wait = Math.max(0, EMBED_MIN_SKELETON_MS - el);
+      setTimeout(() => { card.classList.remove("failed"); card.classList.add("loaded"); }, wait);
+    };
+    const bad = () => { clearT(); card.classList.remove("loaded"); card.classList.add("failed"); };
+
+    card._embedStart = Date.now();
+    iframe.addEventListener("load", ok);
+    iframe.addEventListener("error", bad);
+    card._embedT = setTimeout(bad, EMBED_TIMEOUT_MS); // 8s 超时兜底
+
+    if (demoKey) {
+      iframe.removeAttribute("src");
+      iframe.srcdoc = embedDemoDoc(demoKey); // 零依赖：内联模拟页面
+    } else {
+      iframe.srcdoc = "";
+      iframe.src = card.dataset.url;          // 真实 URL（原型下多不可达 → 超时降级）
+    }
+  });
+}
+
+/* 重试：重置状态并重新发起加载（重新绑定 load / error / 超时） */
+function retryEmbed(cardId) {
+  const card = document.querySelector('.embed-card[data-embed="' + cardId + '"]');
+  if (!card) return;
+  card.classList.remove("failed", "blocked", "loaded");
+  const iframe = card.querySelector("iframe");
+  if (iframe) { iframe.removeAttribute("srcdoc"); iframe.removeAttribute("src"); }
+  if (card._embedT) { clearTimeout(card._embedT); card._embedT = null; }
+  bindEmbedFrames();
+  msg("info", "正在重试加载嵌入页面…");
+}
+
+/* 「在新标签页打开」——严格走决议 #5 语义（不内嵌，跳转新页） */
+function openEmbedExternal(cardId) {
+  const c = layout.cards.find(x => x.cardId === cardId);
+  const t = (c && c.params && c.params.title) || (c && c.name) || "该页面";
+  msg("info", "新标签页打开「" + t + "」（决议 #5 · 应用跳转语义）");
+}
+
+/* 编辑态：高度微调（写入 params.height 并持久化） */
+function adjustEmbedHeight(cardId, delta) {
+  const c = layout.cards.find(x => x.cardId === cardId);
+  if (!c) return;
+  c.params = c.params || {};
+  c.params.height = Math.max(160, Math.min(900, (Number(c.params.height) || 320) + delta));
+  saveEmbedCards();
+  renderLayout();
+}
+
+/* 移除嵌入卡片（编辑态） */
+function removeEmbedCard(cardId) {
+  const i = layout.cards.findIndex(x => x.cardId === cardId);
+  if (i < 0) return;
+  const nm = layout.cards[i].name || "嵌入卡片";
+  layout.cards.splice(i, 1);
+  saveEmbedCards();
+  renderLayout();
+  msg("success", "已移除「" + nm + "」（保存后生效）");
+}
+
+/* ------------------------------------------------------------------
+   持久化：嵌入卡片实例（含 params）
+   —— 存于单独 key「bmp_embed_cards」；order/visible/col 仍由 user_override 管理，
+      但实例本身（含 url/title/height）必须独立保存，否则取消/刷新后会丢失。
+   ------------------------------------------------------------------ */
+function saveEmbedCards() {
+  const list = layout.cards
+    .filter(c => c.cardId.indexOf("embed:") === 0)
+    .map(c => ({ cardId: c.cardId, name: c.name, col: c.col, order: c.order, visible: c.visible, params: c.params || {} }));
+  try { localStorage.setItem(EMBED_KEY, JSON.stringify(list)); } catch (e) {}
+}
+/* 载入：若存在 key 则以存档为准（完整替换模板自带的 embed 卡片，保证「移除」也能持久化）；
+   否则保留模板预置的演示卡片。 */
+function loadEmbedCards(tpl) {
+  let saved = null;
+  try { const s = localStorage.getItem(EMBED_KEY); if (s) saved = JSON.parse(s); } catch (e) { saved = null; }
+  if (!Array.isArray(saved)) return false;
+  tpl.cards = tpl.cards.filter(c => c.cardId.indexOf("embed:") !== 0);
+  saved.forEach(ec => {
+    if (!ec || typeof ec.cardId !== "string" || ec.cardId.indexOf("embed:") !== 0) return;
+    tpl.cards.push({
+      cardId: ec.cardId,
+      name: ec.name || (ec.params && ec.params.title) || "嵌入页面",
+      col: COL_TIERS[ec.col] ? ec.col : "center",
+      order: typeof ec.order === "number" ? ec.order : 99,
+      visible: ec.visible !== false,
+      params: ec.params || {}
+    });
+  });
+  return true;
+}
+
+/* ------------------------------------------------------------------
+   添加嵌入卡片弹窗（编辑模式入口）
+   ------------------------------------------------------------------ */
+function openEmbedManager() {
+  if (!editing) { msg("info", "请先进入编辑模式（Ctrl+E），再添加页面卡片"); return; }
+  const sel = document.getElementById("embedSource");
+  sel.innerHTML = EMBED_SOURCES.map((s, i) => `<option value="${i}">${esc(s.label)}</option>`).join("");
+  sel.value = "0";
+  document.getElementById("embedHeight").value = "320";
+  document.getElementById("embedCol").value = "center";
+  onEmbedSourceChange();
+  document.getElementById("embedMask").classList.add("show");
+}
+function closeEmbedManager() { document.getElementById("embedMask").classList.remove("show"); }
+/* 选择来源 → 自动带出 URL 与标题（自定义来源则清空，由用户手填） */
+function onEmbedSourceChange() {
+  const s = EMBED_SOURCES[Number(document.getElementById("embedSource").value)] || EMBED_SOURCES[0];
+  document.getElementById("embedUrl").value = s.url || "";
+  document.getElementById("embedTitle").value = s.label.replace(/（.*?）/, "") || "";
+}
+/* 保存并立即渲染。白名单校验：未登记域名 → 拒绝并提示需管理员上架（决议 #5b 约束①） */
+function saveEmbedCard() {
+  const title = document.getElementById("embedTitle").value.trim();
+  const url = document.getElementById("embedUrl").value.trim();
+  const height = Number(document.getElementById("embedHeight").value) || 320;
+  const col = document.getElementById("embedCol").value;
+  const src = EMBED_SOURCES[Number(document.getElementById("embedSource").value)] || EMBED_SOURCES[0];
+
+  if (!title) { msg("error", "请填写「页面标题」"); return; }
+  if (!url) { msg("error", "请填写「页面 URL」"); return; }
+  if (!isWhitelisted(url)) {
+    msg("error", "该域名未在应用注册中登记，需管理员先上架：" + (hostOf(url) || url));
+    return;
+  }
+  // demo 由最终 URL 反推（而非下拉停留的旧来源），保证演示内容与 URL 一致
+  const demoKey = demoForUrl(url);
+  const icon = demoKey ? (EMBED_SOURCES.find(s => s.url === url) || {}).icon || "🖥" : (src.icon || "🖥");
+  // 唯一 cardId：embed:<slug> —— 保证多实例互不冲突、applyOverride 可精确匹配
+  const slug = "u-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6);
+  const cardId = "embed:" + slug;
+  const card = {
+    cardId: cardId,
+    name: title,
+    col: COL_TIERS[col] ? col : "center",
+    order: Math.max(0, ...layout.cards.filter(x => x.col === col).map(x => x.order)) + 1,
+    visible: true,
+    params: { url: url, title: title, height: height, icon: icon, demo: demoKey }
+  };
+  layout.cards.push(card);
+  saveEmbedCards();     // 立即持久化（结构性新增）
+  closeEmbedManager();
+  renderLayout();       // 立即渲染
+  msg("success", "已添加页面卡片「" + title + "」（可在编辑态拖拽 / 换栏 / 调高度）");
+}
+
+/* ============================================================
+   五、布局渲染 + 编辑模式（拖拽排序 / 显隐 / 移动栏位 / 栏宽）
+   ============================================================ */
+function renderLayout() {
+  ["left", "center", "right"].forEach(col => {
+    const host = document.querySelector('.col[data-col="' + col + '"]');
+    const cards = layout.cards.filter(c => c.col === col && (c.visible || editing)).sort((a, b) => a.order - b.order);
+    host.innerHTML = cards.map(blockHtml).join("");
+  });
+  applyColWidths();
+  syncTierButtons();
+  bindDrag();
+  bindEmbedFrames();
+}
+function blockHtml(c) {
+  const isEmbed = c.cardId.indexOf("embed:") === 0;
+  const render = BLOCK_RENDERERS[c.cardId];
+  const inner = isEmbed
+    ? renderEmbedBlock(c)
+    : (render ? render() : `<div class="board"><div class="stream-empty"><div class="t2">未注册的区块</div></div></div>`);
+  /* 栏内操作：仅排序 / 显隐（栏位与栏宽由管理员模板设定，故无跨栏按钮） */
+  const ops = `<div class="blk-ops">
+    <button title="上移" onclick="moveCard('${c.cardId}',-1)">↑</button>
+    <button title="下移" onclick="moveCard('${c.cardId}',1)">↓</button>
+    <button title="${c.visible ? "隐藏" : "显示"}" onclick="toggleCard('${c.cardId}')">${c.visible ? "👁" : "🚫"}</button>
+    ${isEmbed ? `<button title="移除该嵌入卡片" onclick="removeEmbedCard('${c.cardId}')">✕</button>` : ""}
+  </div>`;
+  return `<div class="blk ${c.visible ? "" : "hidden-blk"}" data-id="${c.cardId}" data-col="${c.col}">
+    ${editing ? ops : ""}
+    <div draggable="${editing ? "true" : "false"}">${inner}</div>
+  </div>`;
+}
+function applyColWidths() {
+  const root = document.documentElement;
+  root.style.setProperty("--col-left", COL_TIERS.left[layout.cols.left] || COL_TIERS.left.m);
+  root.style.setProperty("--col-right", COL_TIERS.right[layout.cols.right] || COL_TIERS.right.m);
+}
+function syncTierButtons() {
+  // 用户侧已无栏宽档位按钮（决议 #6 收回）；保留空实现以兼容既有调用链
+  document.querySelectorAll(".et-pill").forEach(b => {
+    const col = b.dataset.col;
+    b.classList.toggle("on", layout.cols[col] === b.dataset.tier);
+  });
+}
+
+/* 编辑操作 */
+function moveCard(id, dir) {
+  const c = layout.cards.find(x => x.cardId === id);
+  const sorted = layout.cards.filter(x => x.col === c.col).sort((a, b) => a.order - b.order);
+  const i = sorted.findIndex(x => x.cardId === id), j = i + dir;
+  if (j < 0 || j >= sorted.length) return;
+  [sorted[i].order, sorted[j].order] = [sorted[j].order, sorted[i].order];
+  renderLayout();
+}
+/* 跨栏移动：保留函数签名以兼容既有引用，但按决议 #6 + UIUX §5.3 收回该能力 */
+function moveToCol(id, col) {
+  msg("info", "栏位由管理员在「门户运营 → 布局模板管理」统一设定，不支持用户跨栏移动");
+}
+function toggleCard(id) { const c = layout.cards.find(x => x.cardId === id); c.visible = !c.visible; renderLayout(); }
+/* 栏宽档位：收回用户侧能力（仅管理员模板层可设）；保留函数以兼容历史调用 */
+function setColTier(col, tier) { msg("info", "栏宽由管理员在「布局模板管理」统一设定，不支持用户调整"); }
+
+function bindDrag() {
+  if (!editing) return;
+  let dragId = null;
+  document.querySelectorAll(".blk > div[draggable='true']").forEach(el => {
+    el.addEventListener("dragstart", () => { dragId = el.closest(".blk").dataset.id; el.style.opacity = ".5"; });
+    el.addEventListener("dragend", () => { el.style.opacity = ""; });
+  });
+  document.querySelectorAll(".blk").forEach(el => {
+    el.addEventListener("dragover", e => e.preventDefault());
+    el.addEventListener("drop", e => {
+      e.preventDefault();
+      const targetId = el.dataset.id;
+      if (!dragId || dragId === targetId) return;
+      const a = layout.cards.find(c => c.cardId === dragId), b = layout.cards.find(c => c.cardId === targetId);
+      // 栏内排序；跨栏禁拖拽（栏位由管理员模板决定，决议 #6 + UIUX §5.3）
+      if (a.col !== b.col) { msg("info", "栏位由管理员模板设定，不支持跨栏移动"); return; }
+      [a.order, b.order] = [b.order, a.order];
+      renderLayout(); msg("success", "区块顺序已调整（保存后生效）");
+    });
+  });
+}
+function enterEdit() { editing = true; document.body.classList.add("editing"); renderLayout(); msg("info", "已进入编辑模式：可栏内拖拽排序 / 显隐（栏位与栏宽由管理员模板设定）"); }
+function exitEdit(save) {
+  editing = false; document.body.classList.remove("editing");
+  if (save) {
+    // 【授权边界】决议 #6：用户覆盖只允许写 order / visible（本原型 col 由管理员模板固定，故不写 cols）
+    localStorage.setItem("bmp_user_override", JSON.stringify({
+      cards: layout.cards.map(c => ({ cardId: c.cardId, order: c.order, visible: c.visible, col: c.col }))
+    }));
+    saveEmbedCards(); // 嵌入卡片实例（含 params）另行落盘，保证新增/移除/高度调整均持久化
+    msg("success", "个人首页配置已保存（user_override_json）");
+  } else {
+    layout = JSON.parse(JSON.stringify(MOCK.layoutTemplateV2));
+    loadEmbedCards(layout); // 恢复存档中的嵌入卡片实例（丢弃本次未保存的新增/移除）
+    loadOverride();
+    msg("info", "已取消本次修改");
+  }
+  renderLayout();
+}
+function resetLayout() {
+  localStorage.removeItem("bmp_user_override");
+  localStorage.removeItem(EMBED_KEY);
+  layout = JSON.parse(JSON.stringify(MOCK.layoutTemplateV2));
+  renderLayout(); msg("success", "已恢复角色默认模板（含预置嵌入卡片）");
+}
+
+/* ============================================================
+   六、区块交互
+   ============================================================ */
+let briefGenerating = true;
+
+function toggleBriefDetail(btn) {
+  const d = document.getElementById("briefDetail");
+  if (!d) return;
+  const open = d.hidden;
+  d.hidden = !open;
+  btn.textContent = open ? "收起" : "看全部";
+}
+function handleFirstUrgent() {
+  const g = todosByGroup();
+  const t = (g.today[0] || g.week[0] || g.know[0]);
+  if (!t) { msg("info", "今天没有待处理事项"); return; }
+  handleTodo(t.id);
+}
+function findEmployeeTodo(id) {
+  return portalEmployeeTodoList().find(x => x.id === id);
+}
+function handleTodo(id) {
+  const t = findEmployeeTodo(id);
+  if (!t) return;
+  if (t.handleMode === "internal" && t.jumpUrl) {
+    location.href = t.jumpUrl;
+    return;
+  }
+  if (t.jumpUrl && String(t.jumpUrl).indexOf("javascript:") === 0) {
+    try { new Function(t.jumpUrl.replace(/^javascript:/, ""))(); } catch (_) { msg("info", "原型演示：打开 " + t.source); }
+    return;
+  }
+  msg("info", "原型演示：新标签页打开 " + t.source + " 处理页（SSO 免登直达）");
+}
+function markDone(id) {
+  if (String(id).indexOf("wf-") === 0) {
+    msg("info", "站内流程请在审批中心办理（C3）");
+    location.href = "approval.html?task=" + encodeURIComponent(String(id).replace(/^wf-/, ""));
+    return;
+  }
+  const idx = MOCK.todos.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const t = MOCK.todos[idx];
+  MOCK.todos.splice(idx, 1);
+  MOCK.todosDone.unshift({ id: Date.now(), source: t.source, title: t.title, result: "已处理", time: "刚刚" });
+  renderLayout();
+  msg("success", "已处理，并从时间轴移除");
+  if (!MOCK.todos.length) {
+    // 若全部清空，保留列表结构，仅示意（不自动切空态，用户可手动模拟）
+  }
+}
+function openPortalApp(name) {
+  if (MOCK.openPortalApp) MOCK.openPortalApp(name);
+  else msg("info", "打开 " + name);
+}
+function openApp(name) { openPortalApp(name); }
+function toggleApps(btn) {
+  const panel = document.getElementById("appsPanel");
+  const open = panel.classList.toggle("open");
+  btn.classList.toggle("open", open);
+}
+
+/* ---------- 我的订阅（规格 3）：管理弹窗交互 ---------- */
+/* 打开管理弹窗：列出全部应用 + 复选框（勾选态回显当前订阅） */
+function openSubManager() {
+  const subs = loadSubscriptions();
+  const list = document.getElementById("subList");
+  /* 仅展示角色可选 ∩ 应用中心目录（管理员在「角色订阅与意图」配置） */
+  const cat = portalCatalog();
+  const pickApps = (MOCK.getRoleAllowedAppNames ? MOCK.getRoleAllowedAppNames() : cat.map(a => a.name))
+    .map(n => cat.find(a => a.name === n)).filter(Boolean);
+  list.innerHTML = pickApps.length ? pickApps.map(a =>
+    `<label class="sub-opt">
+      <span class="so-ic">${a.icon}</span>
+      <span class="so-nm">${esc(a.name)}</span>
+      <span class="so-grp">${esc(a.kind === "workflow" ? (MOCK.bizDomainLabel(a.bizDomain) + " · 流程") : a.group)}</span>
+      <input type="checkbox" value="${esc(a.name)}" ${subs.indexOf(a.name) !== -1 ? "checked" : ""}>
+    </label>`).join("") : `<div class="sub-empty"><span class="se-s">当前角色暂无可订阅应用，请联系管理员配置</span></div>`;
+  document.getElementById("subMask").classList.add("show");
+}
+function closeSubManager() { document.getElementById("subMask").classList.remove("show"); }
+/* 保存：读取勾选项 → 持久化 → 立即刷新右栏（含空态） */
+function saveSubManager() {
+  const checked = Array.from(document.querySelectorAll('#subList input[type="checkbox"]:checked')).map(x => x.value);
+  const saved = saveSubscriptions(checked);
+  closeSubManager();
+  renderLayout();
+  msg("success", saved.length ? "已保存订阅：" + saved.length + " 个应用（移动端同步）" : "已清空订阅");
+}
+
+/* 意图流分发 */
+function runIntent(key) {
+  const it = getActiveIntents().find(x => x.key === key);
+  if (!it) return;
+  /* A1-F02-7：配置了 jumpUrl 且非 cmd 时优先一跳（外链新标签 / 站内当前页） */
+  if (MOCK.navigateIntentJump && MOCK.navigateIntentJump(it)) return;
+  if (it.kind === "sso") { msg("info", "带 SSO 直达「" + it.app + "」对应页面（不再浪费一次跳转）"); return; }
+  if (it.kind === "internal") { msg("info", "原型演示：打开「" + it.app + "」"); return; }
+  openIntentForm(it.bizType);
+}
+
+/* ---------- 意图表单弹窗（AI 预填） ---------- */
+let currentIntent = null;
+function openIntentForm(bizType) {
+  const def = INTENT_FORMS[bizType];
+  if (!def) { msg("info", "该意图暂未配置表单"); return; }
+  currentIntent = def;
+  document.getElementById("intentIcon").textContent = def.icon;
+  document.getElementById("intentTitle").textContent = def.title;
+  document.getElementById("intentPrefill").innerHTML =
+    `<span>📋</span><span><b>已按规则预填</b>：${def.prefill.replace(/AI /g, "")}</span>`;
+  document.getElementById("intentFields").innerHTML = def.fields.map(f => {
+    let ctrl = "";
+    if (f.type === "select") {
+      ctrl = `<select class="inp" data-fk="${f.k}">${(f.options || []).map(o => `<option value="${o.v}" ${o.v === f.value ? "selected" : ""}>${esc(o.t)}</option>`).join("")}</select>`;
+    } else if (f.type === "textarea") {
+      ctrl = `<textarea class="inp" rows="3" data-fk="${f.k}">${esc(f.value || "")}</textarea>`;
+    } else {
+      ctrl = `<input class="inp" type="${f.type === "date" ? "date" : "text"}" data-fk="${f.k}" value="${esc(f.value || "")}" placeholder="${esc(f.ph || "")}">`;
+    }
+    return `<div class="field"><label>${esc(f.label)}${f.req ? '<span class="req">*</span>' : ""}</label>${ctrl}</div>`;
+  }).join("");
+  document.getElementById("intentMask").classList.add("show");
+}
+function closeIntent() { document.getElementById("intentMask").classList.remove("show"); currentIntent = null; }
+function submitIntent() {
+  if (!currentIntent) return;
+  const def = currentIntent;
+  const miss = def.fields.filter(f => f.req && !document.querySelector('#intentFields [data-fk="' + f.k + '"]').value);
+  if (miss.length) { msg("error", "请填写：" + miss.map(f => f.label).join("、")); return; }
+  closeIntent();
+  msg("success", "已提交「" + def.title + "」，可在「审批中心 → 我发起」查看进度");
+}
+
+/* ============================================================
+   七、⌘K 命令栏（键盘优先）
+   ============================================================ */
+let cmdkItems = [];
+let cmdkIdx = 0;
+function buildCommands() {
+  const list = [];
+  // 系统命令
+  list.push({ g: "命令", icon: "✎", label: "进入首页编辑模式", hint: "Ctrl+E", run: () => { closeCmdk(); enterEdit(); } });
+  list.push({ g: "命令", icon: "↺", label: "恢复默认布局", hint: "resetLayout", run: () => { closeCmdk(); resetLayout(); } });
+  list.push({ g: "命令", icon: "⚠", label: "模拟网络异常", hint: "状态覆盖", run: () => { closeCmdk(); demoNetError(); } });
+  list.push({ g: "命令", icon: "🎯", label: "管理端 · 意图项配置", hint: "A1-F02-7", run: () => { closeCmdk(); window.open("console.html?page=portal-apps&tab=intents", "_blank"); } });
+  const aiCfg = getPortalAiCfg();
+  if (aiCfg.enabled !== false) {
+    list.push({ g: "命令", icon: "✨", label: "打开 AI 助手", hint: "A1-F02-9 · MCP", run: () => { closeCmdk(); togglePortalAssistant(true); } });
+  } else {
+    list.push({ g: "命令", icon: "✨", label: "打开 AI 助手", hint: "未启用", run: () => { closeCmdk(); msg("info", "AI 助手未启用。请在管理端「首页 AI 助手」开启，或使用规则简报 / ⌘K / 意图流。"); } });
+  }
+  // 意图
+  getActiveIntents().forEach(it => list.push({ g: "我要做什么", icon: it.icon, label: it.name, hint: it.sub, run: () => { closeCmdk(); runIntent(it.key); } }));
+  // 应用
+  MOCK.apps.forEach(a => list.push({ g: "应用", icon: a.icon, label: "打开 " + a.name, hint: a.group, run: () => { closeCmdk(); openApp(a.name); } }));
+  // 待办
+  todosByGroup().all.forEach(t => list.push({ g: "待办", icon: iconOfBiz(t.bizType), label: t.title, hint: remainText(t), run: () => { closeCmdk(); handleTodo(t.id); } }));
+  return list;
+}
+function openCmdk() {
+  document.getElementById("cmdkMask").classList.add("show");
+  const inp = document.getElementById("cmdkInput");
+  inp.value = ""; cmdkIdx = 0;
+  renderCmdk("");
+  setTimeout(() => inp.focus(), 20);
+}
+function closeCmdk() { document.getElementById("cmdkMask").classList.remove("show"); }
+function renderCmdk(q) {
+  const all = buildCommands();
+  const kw = (q || "").trim().toLowerCase();
+  const matched = kw ? all.filter(x => (x.label + " " + (x.hint || "") + " " + x.g).toLowerCase().indexOf(kw) !== -1) : all;
+  cmdkItems = matched.slice(0, 60);
+  if (cmdkIdx >= cmdkItems.length) cmdkIdx = Math.max(0, cmdkItems.length - 1);
+  const box = document.getElementById("cmdkList");
+  if (!cmdkItems.length) { box.innerHTML = `<div class="cmdk-empty">没有匹配「${esc(q)}」的结果</div>`; return; }
+  let html = "", lastG = null;
+  cmdkItems.forEach((x, i) => {
+    if (x.g !== lastG && !kw) { html += `<div class="cmdk-group-lbl">${x.g}</div>`; lastG = x.g; }
+    html += `<div class="cmdk-item ${i === cmdkIdx ? "active" : ""}" data-i="${i}" onmouseenter="cmdkIdx=${i};renderCmdkHighlight()" onclick="runCmdk(${i})">
+      <span class="ci">${x.icon}</span><span class="cl">${esc(x.label)}</span><span class="ch">${esc(x.hint || "")}</span></div>`;
+  });
+  box.innerHTML = html;
+}
+function renderCmdkHighlight() {
+  document.querySelectorAll("#cmdkList .cmdk-item").forEach(el => {
+    el.classList.toggle("active", +el.dataset.i === cmdkIdx);
+  });
+}
+function runCmdk(i) { const x = cmdkItems[i]; if (x) x.run(); }
+document.getElementById("cmdkInput").addEventListener("input", e => { cmdkIdx = 0; renderCmdk(e.target.value); });
+
+/* ============================================================
+   八、演示工具（空态 / 网络异常 / 简报重播 · V1.5 无 AI 助手）
+   ============================================================ */
+function demoNetError() { document.getElementById("netBanner").classList.add("show"); }
+function toggleEmptyDemo() {
+  emptyDemo = !emptyDemo;
+  renderLayout();
+  msg("info", emptyDemo ? "已切换到空态（模拟 0 条待办）" : "已恢复演示数据");
+}
+/* ---------- 全局态演示（UIUX §4.2：无权限 / 网络异常 / 会话过期） ---------- */
+function toggleNetBanner() {
+  const b = document.getElementById("netBanner");
+  if (!b) return;
+  b.classList.toggle("show");
+  msg("info", b.classList.contains("show") ? "已模拟网络异常（顶部横幅）" : "网络已恢复");
+}
+function demoNoPerm() {
+  msg("info", "无权限态演示：访问无权限页面时展示锁形插图 + 「去申请权限」入口（见任意管理端页或待办页五态演示）");
+}
+function demoSessionExpired() {
+  if (window.__expiredShown) { msg("info", "已展示过会话过期弹窗"); return; }
+  window.__expiredShown = true;
+  const mask = document.createElement("div");
+  mask.className = "modal-mask show";
+  mask.style.zIndex = "3000";
+  mask.innerHTML = `<div class="modal" style="width:400px">
+    <div class="modal-head"><h3>登录已过期</h3></div>
+    <div class="modal-body text-secondary" style="line-height:1.7">你的登录状态已过期（会话超时或已在其他设备登出），为保障账号安全需重新登录。<br><span class="fs-12">确认后将跳转统一登录页，并保留原访问地址（redirect）。</span></div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="window.__expiredShown=false;this.closest('.modal-mask').remove();location.href='login.html?redirect=home-v2.html'">重新登录</button></div>
+  </div>`;
+  document.body.appendChild(mask);
+}
+function replayBrief() {
+  briefGenerating = true; renderLayout();
+  setTimeout(() => { briefGenerating = false; renderLayout(); msg("info", "今日简报已按规则引擎刷新"); }, 900);
+}
+
+/* ============================================================
+   九点五、演示用 AI 助手 FAB（读 bmp_portal_ai_config · mock 多轮）
+   ============================================================ */
+let portalAiOpen = false;
+let portalAiBooted = false;
+
+function getPortalAiCfg() {
+  return MOCK.getPortalAiConfig ? MOCK.getPortalAiConfig() : { enabled: false, aiAvailable: true };
+}
+
+function portalAiAppend(role, text, extraClass) {
+  const box = document.getElementById("portalAiBody");
+  if (!box) return;
+  const el = document.createElement("div");
+  el.className = "portal-ai-msg " + role + (extraClass ? " " + extraClass : "");
+  el.textContent = text;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function portalAiResetThread(cfg) {
+  const box = document.getElementById("portalAiBody");
+  if (!box) return;
+  box.innerHTML = "";
+  portalAiAppend("ai", cfg.welcomeText || MOCK.portalAiAssistantDefault.welcomeText);
+  if (cfg.aiAvailable === false) {
+    portalAiAppend("ai", cfg.unavailableMessage || MOCK.portalAiAssistantDefault.unavailableMessage, "degrade");
+  }
+}
+
+function applyPortalAiConfig(resetThread) {
+  const cfg = getPortalAiCfg();
+  const wrap = document.getElementById("portalAiWrap");
+  const routeTag = document.getElementById("portalAiRouteTag");
+  const inp = document.getElementById("portalAiInput");
+  const sendBtn = document.getElementById("portalAiSendBtn");
+  const quick = document.getElementById("portalAiQuick");
+  if (wrap) wrap.hidden = cfg.enabled === false;
+  if (routeTag) routeTag.textContent = cfg.modelRouteLabel || "模型路由 V2";
+  if (inp) {
+    inp.placeholder = cfg.inputPlaceholder || MOCK.portalAiAssistantDefault.inputPlaceholder;
+    inp.disabled = cfg.aiAvailable === false;
+  }
+  if (sendBtn) sendBtn.disabled = cfg.aiAvailable === false;
+  if (quick) quick.style.display = cfg.aiAvailable === false ? "none" : "";
+  if (resetThread || !portalAiBooted) portalAiResetThread(cfg);
+  portalAiBooted = true;
+  if (cfg.enabled === false && portalAiOpen) togglePortalAssistant(false);
+}
+
+function togglePortalAssistant(force) {
+  const cfg = getPortalAiCfg();
+  if (cfg.enabled === false) {
+    if (force === true) msg("info", "AI 助手未启用。管理端 console.html?page=portal-ai-assistant 可开启演示 FAB。");
+    return;
+  }
+  const panel = document.getElementById("portalAiPanel");
+  const fab = document.getElementById("portalAiFab");
+  portalAiOpen = typeof force === "boolean" ? force : !portalAiOpen;
+  if (panel) panel.classList.toggle("open", portalAiOpen);
+  if (fab) {
+    fab.classList.toggle("open", portalAiOpen);
+    fab.setAttribute("aria-expanded", portalAiOpen ? "true" : "false");
+  }
+  if (portalAiOpen) {
+    const inp = document.getElementById("portalAiInput");
+    if (inp && !inp.disabled) setTimeout(() => inp.focus(), 80);
+  }
+}
+
+function portalAiSend() {
+  const cfg = getPortalAiCfg();
+  const inp = document.getElementById("portalAiInput");
+  if (!inp || cfg.aiAvailable === false) return;
+  const text = (inp.value || "").trim();
+  if (!text) return;
+  portalAiAppend("user", text);
+  inp.value = "";
+  setTimeout(() => {
+    const reply = MOCK.portalAiMockReply ? MOCK.portalAiMockReply(text, cfg) : "（mock 未加载）";
+    portalAiAppend("ai", reply);
+  }, 420);
+}
+
+function portalAiQuickSend(text) {
+  const inp = document.getElementById("portalAiInput");
+  if (inp && !inp.disabled) inp.value = text;
+  portalAiSend();
+}
+
+document.getElementById("portalAiInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); portalAiSend(); }
+});
+window.addEventListener("bmp:portal-ai-config-updated", () => applyPortalAiConfig(true));
+applyPortalAiConfig(true);
+
+/* ============================================================
+   十、全局键盘：⌘K 命令栏 + Ctrl+E 编辑 + Esc
+   ============================================================ */
+document.addEventListener("keydown", e => {
+  const meta = e.metaKey || e.ctrlKey;
+  if (meta && e.key.toLowerCase() === "k") { e.preventDefault(); openCmdk(); return; }
+  if (!editing && meta && e.key.toLowerCase() === "e") { e.preventDefault(); enterEdit(); return; }
+  const maskOpen = document.getElementById("cmdkMask").classList.contains("show");
+  if (maskOpen) {
+    if (e.key === "Escape") { closeCmdk(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); cmdkIdx = Math.min(cmdkItems.length - 1, cmdkIdx + 1); renderCmdkHighlight(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cmdkIdx = Math.max(0, cmdkIdx - 1); renderCmdkHighlight(); }
+    else if (e.key === "Enter") { e.preventDefault(); runCmdk(cmdkIdx); }
+    return;
+  }
+  if (e.key === "Escape") {
+    if (portalAiOpen) { togglePortalAssistant(false); return; }
+    document.getElementById("intentMask").classList.remove("show");
+    document.getElementById("subMask").classList.remove("show");
+    document.getElementById("embedMask").classList.remove("show");
+  }
+});
+/* ============================================================
+   十一、通知 Banner（首页顶部）
+   —— 数据：页面内局部扩展 MOCK.notices（不改 mock.js），补 published + expireAt + type
+   —— 显隐：有「已发布且未过期」条目才渲染；无条目 → 类名不加 .on（display:none，不占位）
+   —— 轮播：多条时内容交换式轮播 + 指示器 + 左右切换 + 自动轮播
+   —— 关闭：当次会话 sessionStorage 记录已关闭 id，不再显示该条
+   ============================================================ */
+const NOTICE_CLOSED_KEY = "bmp_closed_notices";
+
+/* 演示开关：模拟「无公告」状态（验证不占位） */
+let noticeEmptyDemo = false;
+/* 会话内已关闭的公告 id 集合 */
+function closedNoticeIds() {
+  try { return JSON.parse(sessionStorage.getItem(NOTICE_CLOSED_KEY) || "[]"); } catch (e) { return []; }
+}
+function addClosedNotice(id) {
+  const list = closedNoticeIds();
+  if (list.indexOf(id) === -1) list.push(id);
+  try { sessionStorage.setItem(NOTICE_CLOSED_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+/* 页面内公告副本：基于 MOCK.notices 扩展时效与类型（不改 mock.js）
+   —— expireAt 用「相对当前时间」的偏移小时数演示「未过期」判定；status 演示发布状态 */
+function buildNotices() {
+  const base = (window.MOCK && Array.isArray(MOCK.notices)) ? MOCK.notices : [];
+  const now = Date.now();
+  /* 发布状态与过期时间（原型模拟）：
+     id1 国庆放假 → 已发布、7 天后过期、置顶
+     id2 中台上线 → 已发布、30 天后过期
+     id3 职称评审 → 已发布、3 天后过期
+     另有 1 条草稿（未发布）与 1 条已过期，用于验证过滤逻辑 */
+  const META = {
+    1: { status: "published", type: "通知", expireHours: 7 * 24 },
+    2: { status: "published", type: "新闻", expireHours: 30 * 24 },
+    3: { status: "published", type: "通知", expireHours: 3 * 24 }
+  };
+  const extra = [
+    { id: 90, title: "【草稿】关于调整班车时刻的意见征集", dept: "行政部", time: "09-22 11:00", top: false, read: true, body: "本公告尚未发布，不应出现在 Banner（用于验证发布状态过滤）。" },
+    { id: 91, title: "【已过期】中秋节活动报名已结束", dept: "工会", time: "09-10 09:00", top: false, read: true, body: "本条已过期，不应出现在 Banner（用于验证过期过滤）。" }
+  ];
+  const list = base.concat(extra).map(n => {
+    const meta = META[n.id] || { status: n.id >= 90 ? (n.id === 91 ? "published" : "draft") : "published", type: "通知", expireHours: (n.id === 91 ? -24 : 30 * 24) };
+    return {
+      id: n.id, title: n.title, dept: n.dept, time: n.time, top: !!n.top, body: n.body || "",
+      status: meta.status, type: meta.type,
+      expireAt: now + meta.expireHours * 3600 * 1000
+    };
+  });
+  return list;
+}
+
+/* 过滤：已发布 + 未过期 + 未在本次会话关闭；置顶优先，其余按发布时间（近似） */
+function visibleNotices() {
+  if (noticeEmptyDemo) return [];
+  const now = Date.now();
+  const closed = closedNoticeIds();
+  return buildNotices()
+    .filter(n => n.status === "published" && n.expireAt > now && closed.indexOf(n.id) === -1)
+    .sort((a, b) => (b.top - a.top) || (b.id - a.id)); // 置顶优先
+}
+
+let nbList = [];
+let nbIndex = 0;
+let nbTimer = null;
+
+function summaryOf(n) {
+  const s = String(n.body || "").replace(/\s+/g, " ").trim();
+  return s.length > 60 ? s.slice(0, 60) + "…" : s;
+}
+
+/* 渲染 Banner。无条目 → 移除 .on（完全不占位），并停掉轮播 */
+function renderNoticeBanner() {
+  const host = document.getElementById("noticeBanner");
+  nbList = visibleNotices();
+  if (!nbList.length) {
+    host.classList.remove("on");
+    host.innerHTML = "";
+    if (nbTimer) { clearInterval(nbTimer); nbTimer = null; }
+    return;
+  }
+  if (nbIndex >= nbList.length) nbIndex = 0;
+  host.classList.add("on");
+  host.innerHTML = noticeBannerHtml();
+  startNoticeRotate();
+}
+
+function noticeBannerHtml() {
+  const n = nbList[nbIndex];
+  const dots = nbList.length > 1
+    ? `<div class="nb-dots">${nbList.map((_, i) => `<span class="nb-dot ${i === nbIndex ? "on" : ""}" onclick="gotoNotice(${i})" title="第 ${i + 1} 条"></span>`).join("")}</div>` +
+      `<button class="nb-arrow" title="上一条" onclick="prevNotice()">‹</button>` +
+      `<button class="nb-arrow" title="下一条" onclick="nextNotice()">›</button>`
+    : "";
+  return `<div class="nb-inner">
+    <div class="nb-slide">
+      <span class="nb-ic">📢</span>
+      <span class="nb-tag ${n.top ? "pin" : ""}">${n.top ? "置顶" : esc(n.type || "通知")}</span>
+      <span class="nb-title">${esc(n.title)}</span>
+      <span class="nb-sum">${esc(summaryOf(n))}</span>
+      <span class="nb-time">${esc(n.dept || "")} · ${esc(n.time || "")}</span>
+      <a class="nb-go" href="javascript:void(0)" onclick="openNotice(${n.id})">查看详情 →</a>
+    </div>
+    <div class="nb-nav">${dots}</div>
+    <button class="nb-close" title="关闭本条（本次会话不再显示）" onclick="closeNotice(${n.id})">✕</button>
+  </div>`;
+}
+
+/* 切换 / 轮播：内容交换式（仅重绘 slide 与指示器，避免整条跳变） */
+function renderNoticeSlide(fade) {
+  if (!nbList.length) return;
+  const host = document.getElementById("noticeBanner");
+  host.innerHTML = noticeBannerHtml();
+  if (fade) {
+    const slide = host.querySelector(".nb-slide");
+    if (slide) slide.classList.add("nb-fade");
+  }
+}
+function gotoNotice(i) { if (i < 0 || i >= nbList.length) return; nbIndex = i; renderNoticeSlide(true); resetNoticeTimer(); }
+function nextNotice() { if (!nbList.length) return; nbIndex = (nbIndex + 1) % nbList.length; renderNoticeSlide(true); resetNoticeTimer(); }
+function prevNotice() { if (!nbList.length) return; nbIndex = (nbIndex - 1 + nbList.length) % nbList.length; renderNoticeSlide(true); resetNoticeTimer(); }
+function startNoticeRotate() {
+  resetNoticeTimer();
+}
+function resetNoticeTimer() {
+  if (nbTimer) clearInterval(nbTimer);
+  if (nbList.length <= 1) { nbTimer = null; return; }
+  nbTimer = setInterval(() => { nbIndex = (nbIndex + 1) % nbList.length; renderNoticeSlide(true); }, 6000);
+}
+
+function closeNotice(id) {
+  addClosedNotice(id);
+  msg("info", "已关闭该公告（本次会话不再显示）");
+  nbIndex = 0;
+  renderNoticeBanner();
+}
+function openNotice(id) {
+  const n = nbList.find(x => x.id === id);
+  msg("info", "打开公告详情：" + (n ? n.title : "") + "（原型演示）");
+}
+
+/* 演示：模拟「无公告」开关 */
+function toggleNoticeDemo() {
+  noticeEmptyDemo = !noticeEmptyDemo;
+  const link = document.getElementById("noticeDemoLink");
+  if (link) link.textContent = noticeEmptyDemo ? "恢复公告显示" : "模拟无公告（验证 Banner 不占位）";
+  renderNoticeBanner();
+  msg("info", noticeEmptyDemo ? "已模拟「无公告」：Banner 完全不占位" : "已恢复公告显示（顶栏下应出现 Banner）");
+}
+
+/* ============================================================
+   十二、初始化
+   ============================================================ */
+/* 先载入嵌入卡片实例（含 params），再叠加 user_override —— 保证 override 能命中 embed cardId */
+loadEmbedCards(layout);
+loadOverride();
+renderLayout();
+renderNoticeBanner();
+requestAnimationFrame(() => { setTimeout(replayBrief, 50); });
+</script>
+</body>
+</html>

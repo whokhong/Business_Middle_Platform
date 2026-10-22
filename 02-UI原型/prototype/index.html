@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麓邦业务中台 · 原型导航台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  /* ============================================================
+     原型导航台（Notion 暖色风）
+     暖白底 + 细边框 + 麓邦红强调；零外链、零依赖
+     ============================================================ */
+  html, body { background: var(--bmp-bg-page); }
+  body { color: var(--text-primary); padding: 0 0 72px; }
+
+  /* ---------- 顶栏（毛玻璃） ---------- */
+  .nav-topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px; padding: 0 28px;
+    background: rgba(255, 255, 255, .72);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: var(--line);
+  }
+  .nav-brand { display: flex; align-items: center; gap: 10px; }
+  .nav-brand .logo-mark {
+    width: 28px; height: 28px; border-radius: 7px; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .nav-brand .nm { font-size: 15px; font-weight: 700; letter-spacing: -.2px; color: var(--text-primary); }
+  .nav-brand .sep { width: 1px; height: 16px; background: rgba(0, 0, 0, .14); }
+  .nav-brand .sub { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .nav-topbar .tb-hint { font-size: 12px; color: var(--text-weak); }
+
+  /* ---------- 页面容器 ---------- */
+  .nav-page { max-width: 1080px; margin: 0 auto; padding: 44px 28px 0; }
+
+  /* ---------- 页头标题区 ---------- */
+  .page-hero { margin-bottom: 36px; }
+  .page-hero h1 {
+    margin: 0 0 10px; font-size: 44px; font-weight: 700; line-height: 1.05;
+    letter-spacing: -1.5px; color: var(--text-primary);
+  }
+  .page-hero .lede {
+    margin: 0; max-width: 720px; font-size: 15px; line-height: 1.72; color: var(--text-secondary);
+  }
+  .page-hero .hero-chips { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: var(--r-pill);
+    background: var(--surface); border: var(--line);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .chip b { color: var(--text-primary); font-weight: 600; }
+
+  /* ---------- 分组区 ---------- */
+  .sec { margin-bottom: 40px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .sec-head h2 {
+    margin: 0; font-size: 21px; font-weight: 700; line-height: 1.3;
+    letter-spacing: -.25px; color: var(--text-primary);
+  }
+  .sec-head .count {
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--bmp-color-primary-light); border-radius: var(--r-pill); padding: 2px 10px;
+  }
+  .sec-note { margin: 0 0 16px; font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+
+  /* ---------- 卡片网格 ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 12px; }
+  .pcard {
+    display: block; padding: 15px 16px; color: var(--text-primary);
+    background: var(--canvas); border: var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-soft); transition: border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .pcard:hover {
+    border-color: rgba(0, 0, 0, .2); box-shadow: var(--shadow-lift);
+    transform: translateY(-2px); color: var(--text-primary);
+  }
+  .pcard .id { font-size: 11px; font-weight: 600; letter-spacing: .4px; color: var(--text-weak); }
+  .pcard .nm { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 4px 0 6px; letter-spacing: -.2px; }
+  .pcard .ds { font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+  .pcard .tags { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pcard.recommended { border-color: rgba(200, 22, 29, .28); }
+  .pcard.recommended .nm::after {
+    content: "推荐"; margin-left: 8px; font-size: 10px; font-weight: 600; vertical-align: 2px;
+    color: var(--accent); background: var(--bmp-color-primary-light);
+    border-radius: var(--r-pill); padding: 1px 7px;
+  }
+  .pcard.archived .nm { color: var(--text-secondary); }
+
+  /* 后台快捷入口（紧凑列表） */
+  .console-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .console-group { margin: 18px 0 6px; font-size: 13px; font-weight: 700; color: var(--text-secondary); letter-spacing: -.1px; }
+  .console-group:first-of-type { margin-top: 0; }
+  .ccard {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    background: var(--canvas); border: var(--line); border-radius: 8px;
+    font-size: 13px; color: var(--text-primary); transition: border-color .15s, background .15s;
+  }
+  .ccard:hover { border-color: rgba(0, 0, 0, .2); background: var(--surface); color: var(--text-primary); }
+  .ccard .ic { flex: none; font-size: 15px; }
+  .ccard .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ccard .k { font-size: 11px; color: var(--text-weak); font-family: "SFMono-Regular", Consolas, monospace; }
+
+  /* ---------- 页脚 ---------- */
+  .nav-foot {
+    max-width: 1080px; margin: 8px auto 0; padding: 24px 28px 0;
+    border-top: var(--line); font-size: 12px; line-height: 1.9; color: var(--text-weak);
+  }
+  .nav-foot b { color: var(--text-secondary); font-weight: 600; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+
+<header class="nav-topbar">
+  <div class="nav-brand">
+    <span class="logo-mark">麓</span>
+    <span class="nm">麓邦业务中台</span>
+    <span class="sep"></span>
+    <span class="sub">原型导航台</span>
+  </div>
+  <div class="tb-hint">零依赖 · 纯 HTML/CSS/JS · 数据均为前端 Mock</div>
+</header>
+
+<main class="nav-page">
+
+  <div class="page-hero">
+    <h1>原型导航台</h1>
+    <p class="lede">
+      麓邦业务中台 V1.0 可交互原型总入口。全部页面统一为 <b>Notion 暖色体系</b>（暖白底、细边框、麓邦红强调）。
+      直接点击下方任意卡片即可直达对应页面；后台各页通过 <span class="mono">console.html?page=xxx</span> 参数路由。
+    </p>
+    <div class="hero-chips">
+      <span class="chip">🎨 <b>Notion 暖色体系</b> 暖白 #f6f5f4</span>
+      <span class="chip">🔴 <b>麓邦红</b> 品牌强调</span>
+      <span class="chip">🧱 <b>Token 双轨制</b> 变量驱动</span>
+      <span class="chip">📱 <b>PC + 移动端</b> 双端覆盖</span>
+    </div>
+  </div>
+
+  <!-- ========== 门户（V2，推荐） ========== -->
+  <section class="sec">
+    <div class="sec-head"><h2>🏠 门户工作台（V2）</h2><span class="count">6 页</span></div>
+    <p class="sec-note">V2 品牌视觉门户（V1.5 方案 A）：三栏首页 + 规则「今日简报」+ 意图流 / ⌘K + 待办 / 应用 / 消息 / 公告 / 审批（不含 AI 助手对话）。</p>
+    <div class="grid">
+      <a class="pcard recommended" href="home-v2.html">
+        <div class="id">UI-A1-01 · V2</div>
+        <div class="nm">工作台首页</div>
+        <div class="ds">三栏布局 + 规则简报 + 意图流 + 紧迫度时间轴；管理端可配布局 / 意图项（A1-F02-7）。</div>
+        <div class="tags"><span class="tag tag-primary">A1-F02</span><span class="tag tag-primary">A1-F05</span><span class="tag tag-primary">A1-F06</span></div>
+      </a>
+      <a class="pcard recommended" href="todos.html">
+        <div class="id">UI-A4-01</div>
+        <div class="nm">待办中心</div>
+        <div class="ds">待办 / 已办 / 我发起三视图；紧急度排序、催办 24h 去重、批量浮条。</div>
+        <div class="tags"><span class="tag tag-primary">A4-F01~F05</span></div>
+      </a>
+      <a class="pcard recommended" href="apps.html">
+        <div class="id">UI-A1-02</div>
+        <div class="nm">应用中心</div>
+        <div class="ds">应用宫格按频次排序、分组、搜索；点击免登跳转（新标签页）。</div>
+        <div class="tags"><span class="tag tag-primary">A1-F01</span></div>
+      </a>
+      <a class="pcard recommended" href="messages.html">
+        <div class="id">UI-A1-03</div>
+        <div class="nm">消息中心</div>
+        <div class="ds">分类聚合、未读角标、置顶、消息详情与跳转；全部已读二次确认。</div>
+        <div class="tags"><span class="tag tag-primary">A1-F03</span></div>
+      </a>
+      <a class="pcard recommended" href="notices.html">
+        <div class="id">UI-A1-04</div>
+        <div class="nm">公告页</div>
+        <div class="ds">公告列表 + 详情合一，置顶标识，已读回执自动上报。</div>
+        <div class="tags"><span class="tag tag-primary">A1-F04</span></div>
+      </a>
+      <a class="pcard recommended" href="approval.html">
+        <div class="id">UI-WF-06</div>
+        <div class="nm">统一审批中心</div>
+        <div class="ds">待我审批 / 已办 / 我发起三视图；站内审批直接办、跳转审批跳源系统。</div>
+        <div class="tags"><span class="tag tag-primary">C3-F01</span><span class="tag tag-primary">C3-F02</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ========== 移动端 ========== -->
+  <section class="sec">
+    <div class="sec-head"><h2>📱 统一移动端</h2><span class="count">1 屏</span></div>
+    <p class="sec-note">A2 移动门户（V2）：钉钉容器手机壳内 5 项底部 Tab 导航（首页 / 待办 / 审批 / 消息 / 我的），jsapi 免登直达。</p>
+    <div class="grid">
+      <a class="pcard recommended" href="mobile/home-v2.html">
+        <div class="id">UI-M-01~05 · V2</div>
+        <div class="nm">移动端 H5（钉钉容器）</div>
+        <div class="ds">手机壳 + 底部 4 Tab 导航；含免登流程与移动审批办理（同意 / 驳回）演示。</div>
+        <div class="tags"><span class="tag tag-primary">A2-F01~F05</span><span class="tag tag-primary">C3-F03</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ========== 账户 ========== -->
+  <section class="sec">
+    <div class="sec-head"><h2>🔐 账户与认证</h2><span class="count">5 页</span></div>
+    <p class="sec-note">B1 统一身份认证：密码 / 扫码登录、OIDC 授权码 + PKCE、找回密码、MFA 二次验证、个人设置。</p>
+    <div class="grid">
+      <a class="pcard" href="login.html">
+        <div class="id">UI-LOGIN-01 · V2</div>
+        <div class="nm">统一登录页</div>
+        <div class="ds">密码登录 / 扫码登录（钉钉·企微）双 Tab，记住账号，错误锁定提示。</div>
+        <div class="tags"><span class="tag tag-info">B1-F02</span></div>
+      </a>
+      <a class="pcard" href="login-mfa.html">
+        <div class="id">UI-LOGIN-04</div>
+        <div class="nm">MFA 二次验证</div>
+        <div class="ds">高危操作 / 异地登录触发 6 位动态码校验，支持重发倒计时。</div>
+        <div class="tags"><span class="tag tag-warning">B1-F04</span></div>
+      </a>
+      <a class="pcard" href="login-forgot.html">
+        <div class="id">UI-LOGIN-03</div>
+        <div class="nm">找回密码</div>
+        <div class="ds">工号 / 手机验证 → 重置密码，分步校验 + 密码强度实时评估。</div>
+        <div class="tags"><span class="tag tag-info">B1-F05</span></div>
+      </a>
+      <a class="pcard" href="oauth-consent.html">
+        <div class="id">UI-LOGIN-02</div>
+        <div class="nm">OIDC 授权确认</div>
+        <div class="ds">第三方应用申请授权 scope 确认页（授权码 + PKCE）。</div>
+        <div class="tags"><span class="tag tag-info">B1-F02</span></div>
+      </a>
+      <a class="pcard" href="settings.html">
+        <div class="id">UI-U-01</div>
+        <div class="nm">个人设置</div>
+        <div class="ds">个人资料、通知偏好、自定义首页（进入布局编辑态）、账号安全、界面风格定制。</div>
+        <div class="tags"><span class="tag tag-info">A1-F02</span></div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ========== 后台管理 ========== -->
+  <section class="sec">
+    <div class="sec-head"><h2>🛠 管理控制台</h2><span class="count">侧栏 26 项</span></div>
+    <p class="sec-note">
+      配置驱动外壳 <span class="mono">console.html?page=xxx</span>。侧栏<strong>一域一入口</strong>，子能力走页内 Tab 或父页内链（同「消息管理」「文件管理」范式）；下列卡片对齐侧栏，书签 alias 见下方深链区。
+    </p>
+    <div class="console-group">总览</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=dashboard"><span class="ic">📊</span><span class="t">运营总览看板</span><span class="k">dashboard · 单页 KPI</span></a>
+    </div>
+    <div class="console-group">身份与权限</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=accounts"><span class="ic">👤</span><span class="t">账号管理</span><span class="k">accounts</span></a>
+      <a class="ccard" href="console.html?page=roles"><span class="ic">🎭</span><span class="t">角色管理</span><span class="k">roles</span></a>
+      <a class="ccard" href="console.html?page=permissions"><span class="ic">🔑</span><span class="t">权限点管理</span><span class="k">permissions</span></a>
+      <a class="ccard" href="console.html?page=sessions"><span class="ic">🖥</span><span class="t">在线会话管理</span><span class="k">sessions</span></a>
+      <a class="ccard" href="console.html?page=perm-applies"><span class="ic">📝</span><span class="t">权限申请登记</span><span class="k">perm-applies</span></a>
+    </div>
+    <div class="console-group">主数据</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=orgs"><span class="ic">🏢</span><span class="t">组织管理</span><span class="k">orgs</span></a>
+      <a class="ccard" href="console.html?page=employees"><span class="ic">👥</span><span class="t">人员管理</span><span class="k">employees</span></a>
+      <a class="ccard" href="console.html?page=sync-source"><span class="ic">🔗</span><span class="t">权威源配置向导</span><span class="k">sync-source</span></a>
+      <a class="ccard" href="console.html?page=sync-logs"><span class="ic">🔄</span><span class="t">同步日志</span><span class="k">sync-logs</span></a>
+      <a class="ccard" href="console.html?page=file-admin"><span class="ic">📁</span><span class="t">文件管理</span><span class="k">file-admin · 三 Tab</span></a>
+    </div>
+    <div class="console-group">门户运营</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=portal-apps"><span class="ic">🧩</span><span class="t">应用管理</span><span class="k">portal-apps</span></a>
+      <a class="ccard" href="console.html?page=portal-components"><span class="ic">🃏</span><span class="t">首页组件管理</span><span class="k">portal-components · 三 Tab</span></a>
+      <a class="ccard" href="console.html?page=layouts"><span class="ic">📐</span><span class="t">布局模板管理</span><span class="k">layouts</span></a>
+      <a class="ccard" href="console.html?page=portal-role-defaults"><span class="ic">🎭</span><span class="t">角色订阅与意图</span><span class="k">portal-role-defaults</span></a>
+      <a class="ccard" href="console.html?page=notices-admin"><span class="ic">📢</span><span class="t">公告管理</span><span class="k">notices-admin</span></a>
+      <a class="ccard" href="console.html?page=portal-ai-assistant"><span class="ic">✨</span><span class="t">首页 AI 助手（演示）</span><span class="k">portal-ai-assistant</span></a>
+    </div>
+    <div class="console-group">流程与表单</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=workflow-defs"><span class="ic">🧭</span><span class="t">流程定义管理</span><span class="k">workflow-defs · 含向导入口</span></a>
+      <a class="ccard" href="console.html?page=workflow-matrix"><span class="ic">⚖</span><span class="t">审批矩阵管理</span><span class="k">workflow-matrix</span></a>
+      <a class="ccard" href="console.html?page=workflow-instances"><span class="ic">📜</span><span class="t">流程实例监控</span><span class="k">workflow-instances</span></a>
+      <a class="ccard" href="console.html?page=workflow-delegate"><span class="ic">🔁</span><span class="t">委托代理管理</span><span class="k">workflow-delegate</span></a>
+    </div>
+    <div class="console-group">消息管理</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=msg"><span class="ic">✉</span><span class="t">模板 / 渠道 / 记录</span><span class="k">msg</span></a>
+    </div>
+    <div class="console-group">审计中心</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=audit"><span class="ic">🛡</span><span class="t">审计日志检索</span><span class="k">audit</span></a>
+    </div>
+    <div class="console-group">集成与网关</div>
+    <div class="console-grid">
+      <a class="ccard" href="console.html?page=platform-capabilities"><span class="ic">📚</span><span class="t">中台能力目录</span><span class="k">platform-capabilities</span></a>
+      <a class="ccard" href="console.html?page=app-register"><span class="ic">📝</span><span class="t">应用注册</span><span class="k">app-register · 含接入文档链</span></a>
+      <a class="ccard" href="console.html?page=app-register-events"><span class="ic">📡</span><span class="t">事件订阅运维</span><span class="k">app-register-events · 双 Tab</span></a>
+      <a class="ccard" href="console.html?page=gateway"><span class="ic">🚦</span><span class="t">网关路由管理</span><span class="k">gateway</span></a>
+    </div>
+    <p class="sec-note mt-3" style="margin-bottom:8px"><b>书签深链</b>（无侧栏项，page key / tab 仍有效）</p>
+    <div class="console-grid" style="opacity:.92">
+      <a class="ccard" href="console.html?page=portal-components&tab=cards"><span class="ic">🃏</span><span class="t">卡片 Tab</span><span class="k">portal-apps-cards → portal-components</span></a>
+      <a class="ccard" href="console.html?page=portal-components&tab=embeds"><span class="ic">🔗</span><span class="t">嵌入 Tab</span><span class="k">portal-apps-embeds → portal-components</span></a>
+      <a class="ccard" href="console.html?page=portal-components&tab=intents"><span class="ic">🎯</span><span class="t">意图 Tab</span><span class="k">portal-apps-intents → portal-components</span></a>
+      <a class="ccard" href="console.html?page=file-admin&tab=audit"><span class="ic">📋</span><span class="t">下载审计 Tab</span><span class="k">file-audit</span></a>
+      <a class="ccard" href="console.html?page=file-admin&tab=policy"><span class="ic">🛡</span><span class="t">上传策略 Tab</span><span class="k">file-policy</span></a>
+      <a class="ccard" href="console.html?page=app-analytics"><span class="ic">📈</span><span class="t">应用运营看板书签</span><span class="k">app-analytics → dashboard</span></a>
+      <a class="ccard" href="console.html?page=app-register-events&tab=outbox"><span class="ic">🔍</span><span class="t">事件流排查 Tab</span><span class="k">event-monitor alias</span></a>
+      <a class="ccard" href="console.html?page=app-register-guide"><span class="ic">📖</span><span class="t">接入文档</span><span class="k">app-register-guide</span></a>
+      <a class="ccard" href="console.html?page=workflow-designer"><span class="ic">🛠</span><span class="t">流程配置向导</span><span class="k">workflow-designer</span></a>
+    </div>
+  </section>
+
+  <!-- ========== 历史存档 & 设计样稿 ========== -->
+  <section class="sec">
+    <div class="sec-head"><h2>📦 归档</h2><span class="count">2 项</span></div>
+    <p class="sec-note">以下内容为历史版本或风格选型样稿，仅作留档，不作为最新原型入口。</p>
+    <div class="grid">
+      <a class="pcard archived" href="home.html">
+        <div class="id">历史版本</div>
+        <div class="nm">旧版工作台首页</div>
+        <div class="ds">V2 之前的首页实现，保留供对照；已被 <span class="mono">home-v2.html</span> 取代。</div>
+        <div class="tags"><span class="tag tag-info">归档</span></div>
+      </a>
+      <a class="pcard archived" href="style-samples/index.html">
+        <div class="id">风格选型</div>
+        <div class="nm">风格选型样稿</div>
+        <div class="ds">Apple / Vercel / Notion / Dark 四套视觉样稿；最终选定 Notion 暖色体系。</div>
+        <div class="tags"><span class="tag tag-info">归档</span></div>
+      </a>
+      <a class="pcard archived" href="mobile/index.html">
+        <div class="id">历史版本</div>
+        <div class="nm">旧版移动端原型</div>
+        <div class="ds">V2 之前的移动端实现（无底部 Tab 导航），保留供对照；已被 <span class="mono">mobile/home-v2.html</span> 取代。</div>
+        <div class="tags"><span class="tag tag-info">归档</span></div>
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="nav-foot">
+  <b>麓邦业务中台 V1.0</b> · 原型导航台 · 门户（V2）6 页 · 移动端 1 屏 · 账户 5 页 · 管理控制台侧栏 26 项 · 归档 2 项<br>
+  设计依据：《麓邦业务中台产品 PRD》《UI/UX 设计文档 v1.1》《工作流引擎增量 PRD（V1.0 纳入）》<br>
+  数据均为前端 Mock，仅用于交互演示 · 纯 HTML/CSS/JS，零外链、零依赖
+</footer>
+
+</body>
+</html>

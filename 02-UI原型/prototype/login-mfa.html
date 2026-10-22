@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>二次验证 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .mfa-card { width: 400px; max-width: 100%; background: var(--bmp-bg-card); border-radius: var(--bmp-radius-lg); box-shadow: var(--bmp-shadow-2); padding: 32px; text-align: center; }
+  .mfa-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-size: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .mfa-card h2 { font: var(--bmp-font-h2); color: var(--bmp-text-title); margin-bottom: 6px; }
+  .mfa-card .sub { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-bottom: 24px; line-height: 1.7; }
+  .otp-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+  .otp-row input {
+    width: 44px; height: 52px; text-align: center; font-size: 22px; font-weight: 600; color: var(--bmp-text-title);
+    border: 1px solid var(--bmp-border-strong); border-radius: var(--bmp-radius-sm);
+  }
+  .otp-row input:focus { outline: none; border-color: var(--bmp-color-primary); box-shadow: 0 0 0 2px var(--bmp-color-primary-light); }
+  .resend { font-size: 13px; color: var(--bmp-text-secondary); margin-bottom: 24px; }
+  .resend a.disabled { color: var(--bmp-text-placeholder); pointer-events: none; }
+  .off-note { margin-top: 20px; padding: 10px 12px; background: var(--bmp-color-info-light); border-radius: var(--bmp-radius-sm); font: var(--bmp-font-caption); color: var(--bmp-text-secondary); text-align: left; line-height: 1.7; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div class="mfa-card">
+  <div class="mfa-icon">🛡</div>
+  <h2>二次验证（MFA）</h2>
+  <div class="sub">检测到你在管理控制台执行敏感操作，需进行二次身份验证。<br>6 位验证码已发送至钉钉（张三 · EMP-2020-0031）</div>
+  <div class="otp-row" id="otpRow">
+    <input maxlength="1" data-i="0"><input maxlength="1" data-i="1"><input maxlength="1" data-i="2">
+    <input maxlength="1" data-i="3"><input maxlength="1" data-i="4"><input maxlength="1" data-i="5">
+  </div>
+  <div class="resend" id="resendRow"><a class="disabled" id="resendLink" href="javascript:void(0)">重新发送（<span id="cd">60</span>s）</a></div>
+  <button class="btn btn-primary btn-lg" style="width:100%" onclick="verify()">验 证</button>
+  <div class="mt-3"><a href="login.html" class="fs-13">返回登录</a></div>
+  <div class="off-note">
+    说明（T3-03 验收）：MFA 由 B1-F04 配置控制，<b>默认关闭</b>；关闭状态下本页面不可达。开启范围支持按角色（如 super_admin、审计员）或按操作类型（高危操作触发）配置。
+  </div>
+</div>
+<script src="assets/mock.js"></script>
+<script>
+const inputs = document.querySelectorAll("#otpRow input");
+inputs.forEach((inp, i) => {
+  inp.addEventListener("input", () => { if (inp.value && i < 5) inputs[i + 1].focus(); });
+  inp.addEventListener("keydown", e => { if (e.key === "Backspace" && !inp.value && i > 0) inputs[i - 1].focus(); });
+});
+inputs[0].focus();
+let s = 60;
+const t = setInterval(() => {
+  s--; document.getElementById("cd").textContent = s;
+  if (s <= 0) { clearInterval(t); const l = document.getElementById("resendLink"); l.classList.remove("disabled"); l.innerHTML = "重新发送"; l.onclick = () => msg("success", "验证码已重新发送（旧码失效）"); }
+}, 1000);
+function verify() {
+  const code = [...inputs].map(i => i.value).join("");
+  if (code.length < 6) { msg("error", "请输入完整的 6 位验证码"); return; }
+  msg("success", "验证通过"); setTimeout(() => location.href = "home-v2.html", 800);
+}
+</script>
+</body>
+</html>

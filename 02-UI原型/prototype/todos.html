@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>统一待办中心 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .page-head h1 { font: var(--bmp-font-h2); color: var(--bmp-text-title); }
+  .todo-filters { display: flex; gap: 10px; align-items: center; }
+  .todo-filters .select { width: 128px; }
+  .todo-filters .search { width: 200px; }
+  .todo-card {
+    background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1);
+    padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start;
+    border-left: 3px solid transparent; transition: box-shadow .15s;
+  }
+  .todo-card:hover { box-shadow: var(--bmp-shadow-2); }
+  .todo-card.u2 { border-left-color: var(--accent); }  /* 紧急 → 品牌红（UIUX §2.1-3） */
+  .todo-card.u1 { border-left-color: var(--bmp-color-warning); }
+  .todo-card.u0 { border-left-color: var(--bmp-color-info); }
+  .todo-card .ck { margin-top: 4px; width: 15px; height: 15px; cursor: pointer; accent-color: var(--bmp-color-primary); }
+  .todo-card .main { flex: 1; min-width: 0; }
+  .todo-card .t1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .todo-card .t1 .title { font-size: 15px; font-weight: 600; color: var(--bmp-text-title); cursor: pointer; }
+  .todo-card .t1 .title:hover { color: var(--bmp-color-primary); }
+  .todo-card .t2 { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-top: 4px; }
+  .todo-card .side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .todo-card .remain { font: var(--bmp-font-caption); white-space: nowrap; }
+  .todo-card .ops { display: flex; gap: 4px; }
+  .view-panel { display: none; } .view-panel.active { display: block; }
+  .done-item, .init-item { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .done-item .title, .init-item .title { font-size: 14px; color: var(--bmp-text-title); }
+  .progress-mini { display: flex; align-items: center; gap: 6px; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<main class="portal-main">
+  <div class="readonly-banner mb-3" style="background:var(--bmp-color-info-light);border-color:var(--bmp-border);color:var(--bmp-text-secondary);font-size:13px">
+    <b>入口提示</b>：本页聚合<b>外链待办</b>（跳转原系统 SSO）；中台流程<b>站内办理</b>项请前往 <a href="approval.html"><b>审批中心</b></a>（C3）。
+  </div>
+  <div class="page-head">
+    <h1>待办中心</h1>
+    <div class="todo-filters">
+<select class="select" id="fSource"><option value="">来源：全部</option><option>CRM</option><option>OA</option><option>招聘系统</option><option>目标管理</option></select>
+        <select class="select" id="fType"><option value="">类型：全部</option><option value="合同审批">合同审批</option><option value="报销审批">报销审批</option><option value="简历初筛">简历初筛</option><option value="用章申请">用章申请</option></select>
+        <select class="select" id="fUrgency"><option value="">紧急度：全部</option><option value="2">紧急</option><option value="1">重要</option><option value="0">普通</option></select>
+      <input class="input search" id="fKw" placeholder="搜索标题 / 提交人…">
+    </div>
+  </div>
+
+  <div class="tabs mb-4" style="background:var(--bmp-bg-card);padding:0 16px;border-radius:var(--bmp-radius-md) var(--bmp-radius-md) 0 0">
+    <div class="tab active" data-v="pending" onclick="switchView('pending')">待办 <span class="badge-n" id="pendingN"></span></div>
+    <div class="tab" data-v="done" onclick="switchView('done')">已办</div>
+    <div class="tab" data-v="initiated" onclick="switchView('initiated')">我发起的</div>
+  </div>
+
+  <!-- 待办视图：排序 = 紧急度 > 剩余时间升序（临期/超时置顶） -->
+  <div id="stateHost"></div>
+  <div class="view-panel active" id="v-pending"></div>
+
+  <!-- 已办视图（只读，含处理结果） -->
+  <div class="view-panel" id="v-done"></div>
+
+  <!-- 我发起的视图（含进度） -->
+  <div class="view-panel" id="v-initiated"></div>
+</main>
+
+<!-- 批量浮条（勾选后浮出，≤50 条上限） -->
+<div class="batch-bar" id="batchBar">
+  <span>已选 <b id="batchN">0</b> 项</span>
+  <button class="btn btn-sm" onclick="batchUrge()">批量催办</button>
+  <button class="btn btn-sm" onclick="clearSel()">取消选择</button>
+</div>
+
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("todos");
+let selected = new Set();
+const urgedToday = new Set(); // 催办 24h 去重（A4-F04）
+
+function sortTodos(list) {
+  return [...list].sort((a, b) => (b.urgency - a.urgency) || (a.remainHours - b.remainHours));
+}
+function renderPending() {
+  const src = document.getElementById("fSource").value;
+  const type = document.getElementById("fType").value;
+  const urg = document.getElementById("fUrgency").value;
+  const kw = document.getElementById("fKw").value.trim();
+  let list = sortTodos(MOCK.portalEmployeeTodos ? MOCK.portalEmployeeTodos() : MOCK.todos);
+  if (src) list = list.filter(t => t.source === src);
+  if (type) list = list.filter(t => t.title.includes(type));
+  if (urg !== "") list = list.filter(t => String(t.urgency) === urg);
+  if (kw) list = list.filter(t => t.title.includes(kw) || t.submitter.includes(kw));
+  document.getElementById("pendingN").textContent = list.length;
+  const box = document.getElementById("v-pending");
+  if (!list.length) {
+    box.innerHTML = `<div class="card"><div class="state-box"><div class="illus">🎉</div><div class="txt">太棒了，暂无符合条件的待办</div><a class="btn btn-sm" href="apps.html">去应用中心看看</a></div></div>`;
+    return;
+  }
+  box.innerHTML = list.map(t => {
+    const u = URGENCY[t.urgency];
+    const remain = t.overdue
+      ? `<span class="remain text-brand fw-600">⏰ 已超时 ${Math.abs(t.remainHours)} 小时</span>`
+      : (t.remainHours <= 4
+        ? `<span class="remain text-brand fw-600">⏰ 剩余 ${t.remainHours} 小时</span>`
+        : `<span class="remain text-secondary">剩余 ${t.remainHours} 小时</span>`);
+    const urged = urgedToday.has(t.id);
+    const internal = t.handleMode === "internal";
+    const goAct = internal
+      ? "location.href='approval.html?task=" + encodeURIComponent(String(t.wfTaskId || String(t.id).replace(/^wf-/, ""))) + "'"
+      : t.jumpUrl.replace(/"/g, "&quot;");
+    const selKey = typeof t.id === "string" ? JSON.stringify(t.id) : t.id;
+    return `<div class="todo-card u${t.urgency}">
+      <input type="checkbox" class="ck" ${selected.has(t.id) ? "checked" : ""} onchange="toggleSel(${selKey}, this.checked)">
+      <div class="main" onclick="${goAct}" style="cursor:pointer">
+        <div class="t1"><span class="dot ${u.cls}"></span><span class="title">${t.title}</span><span class="tag tag-info">${t.source}</span>${internal ? '<span class="tag tag-primary">站内</span>' : ""}${t.urgency === 2 ? '<span class="tag tag-brand">紧急</span>' : t.urgency === 1 ? '<span class="tag tag-warning">重要</span>' : ""}</div>
+        <div class="t2">${t.submitter} 提交 · ${t.time} · todo_key: <span class="mono">${t.source}:${t.bizType}:${internal ? t.wfTaskId || t.id : "CT-" + (1000 + t.id)}</span></div>
+      </div>
+      <div class="side">
+        ${remain}
+        <div class="ops">
+          <button class="btn btn-sm btn-primary" onclick="${goAct}">${internal ? "去审批中心" : "去处理"}</button>
+          ${/* A4-F04：待办视图催办仅对「已超时」待办开放（PRD §④）；未超时项不提供催办 */ ""}
+          ${t.overdue ? `<button class="btn btn-sm" ${urged ? "disabled title='今日已催办'" : ""} onclick="urge(${t.id})">${urged ? "已催办" : "催办"}</button>` : ""}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function renderDone() {
+  document.getElementById("v-done").innerHTML = MOCK.todosDone.map(t => `<div class="done-item">
+    <div><div class="title">${t.title}</div><div class="t2 fs-12 text-secondary mt-2">[${t.source}] · ${t.time}</div></div>
+    <div style="display:flex;gap:10px;align-items:center"><span class="tag tag-success">${t.result}</span><span class="fs-12 text-secondary">只读</span></div>
+  </div>`).join("");
+}
+function renderInitiated() {
+  document.getElementById("v-initiated").innerHTML = MOCK.todosInitiated.map(t => {
+    const cls = t.progress === "已完成" ? "tag-success" : t.progress === "已撤回" ? "tag-info" : "tag-warning";
+    return `<div class="init-item">
+      <div><div class="title">${t.title}</div><div class="fs-12 text-secondary mt-2">[${t.source}] · 发起于 ${t.time} · 当前节点：${t.node}</div></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="tag ${cls}">${t.progress}</span>
+        ${t.progress === "处理中" ? `<button class="btn btn-sm" onclick="urge(${t.id})">催办</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+function switchView(v) {
+  document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("active", t.dataset.v === v));
+  document.querySelectorAll(".view-panel").forEach(p => p.classList.toggle("active", p.id === "v-" + v));
+  clearSel();
+}
+function urge(id) {
+  if (urgedToday.has(id)) { msg("info", "今日已催办，24 小时内不可重复（A4-F04）"); return; }
+  urgedToday.add(id);
+  msg("success", "已向当前处理人发送催办消息（钉钉工作通知）");
+  renderPending(); renderInitiated();
+}
+function toggleSel(id, on) {
+  if (on) {
+    if (selected.size >= 50) { msg("warning", "批量操作上限 50 条"); renderPending(); return; }
+    selected.add(id);
+  } else selected.delete(id);
+  updateBatch();
+}
+function updateBatch() {
+  document.getElementById("batchN").textContent = selected.size;
+  document.getElementById("batchBar").classList.toggle("show", selected.size > 0);
+}
+function clearSel() { selected.clear(); updateBatch(); renderPending(); }
+function batchUrge() { msg("success", `已对 ${selected.size} 条待办发送催办`); clearSel(); }
+
+function renderAll() {
+  stateSwitcher("stateHost", () => { applyState(); });
+  applyState();
+}
+/* 五态演示：非默认态时用状态占位替换列表；默认态正常渲染 */
+function applyState() {
+  const st = pageState();
+  const host = document.getElementById("stateHost");
+  const main = document.querySelector("main.portal-main");
+  const panels = ["v-pending", "v-done", "v-initiated"].map(id => document.getElementById(id));
+  if (st === "normal") {
+    panels.forEach(p => p.style.display = "");
+    const box = document.getElementById("stateBox"); if (box) box.remove();
+    renderPending(); renderDone(); renderInitiated();
+    return;
+  }
+  panels.forEach(p => p.style.display = "none");
+  let box = document.getElementById("stateBox");
+  if (!box) { box = document.createElement("div"); box.id = "stateBox"; document.querySelector(".tabs").after(box); }
+  renderStateBox(box, st, { name: "待办", emptyText: "太棒了，暂无待办", emptyHint: "所有事项都已处理完毕", action: "去应用中心看看", actionHref: "apps.html" });
+}
+["fSource", "fType", "fUrgency"].forEach(id => document.getElementById(id).addEventListener("change", renderPending));
+document.getElementById("fKw").addEventListener("input", renderPending);
+renderAll();
+</script>
+</body>
+</html>

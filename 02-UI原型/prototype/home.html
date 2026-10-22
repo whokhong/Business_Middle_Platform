@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>工作台首页 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .greet-card {
+    background: linear-gradient(120deg, var(--bmp-color-primary) 0%, #E4453A 100%);
+    border-radius: var(--bmp-radius-md); color: #fff; padding: 22px 28px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .greet-card h1 { font: var(--bmp-font-h2); margin-bottom: 6px; }
+  .greet-card .meta { font-size: 13px; opacity: .88; }
+  .greet-card .right { text-align: right; font-size: 13px; opacity: .92; }
+  .greet-card .btn-ghost { border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff; height: 30px; padding: 0 14px; border-radius: var(--bmp-radius-sm); cursor: pointer; font-size: 13px; margin-top: 8px; }
+  .greet-card .btn-ghost:hover { background: rgba(255,255,255,.15); }
+
+  .grid-row { display: grid; grid-template-columns: repeat(24, 1fr); gap: 16px; }
+  .grid-item { position: relative; }
+  .todo-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--bmp-border); font-size: 14px; }
+  .todo-item:last-child { border-bottom: none; }
+  .todo-item .t-main { flex: 1; min-width: 0; }
+  .todo-item .t-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--bmp-text-title); cursor: pointer; }
+  .todo-item .t-title:hover { color: var(--bmp-color-primary); }
+  .todo-item .t-sub { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+  .todo-item .t-remain { font: var(--bmp-font-caption); white-space: nowrap; }
+  .app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; }
+  .app-cell { text-align: center; cursor: pointer; padding: 8px 2px; border-radius: var(--bmp-radius-md); }
+  .app-cell:hover { background: var(--bmp-color-primary-light); }
+  .app-cell .ic { width: 44px; height: 44px; border-radius: 12px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
+  .app-cell .nm { font-size: 12px; color: var(--bmp-text-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-item { display: flex; gap: 8px; align-items: baseline; padding: 9px 4px; border-bottom: 1px solid var(--bmp-border); font-size: 14px; cursor: pointer; }
+  .msg-item:last-child { border-bottom: none; }
+  .msg-item:hover .m-title { color: var(--bmp-color-primary); }
+  .msg-item .unread { width: 8px; height: 8px; border-radius: 50%; background: var(--bmp-color-danger); flex-shrink: 0; position: relative; top: -1px; }
+  .msg-item .read-dot { width: 8px; flex-shrink: 0; }
+  .msg-item .m-title { flex: 1; color: var(--bmp-text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-item .m-time { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); white-space: nowrap; }
+
+  /* 编辑模式（UIUX 5.3：手柄/虚线框/显隐/栅格） */
+  body.editing .grid-item { outline: 2px dashed var(--bmp-color-primary); outline-offset: 2px; border-radius: var(--bmp-radius-md); }
+  .edit-toolbar {
+    display: none; position: sticky; top: calc(var(--bmp-topbar-h) + 8px); z-index: 90; margin-bottom: 12px;
+    background: var(--bmp-text-title); color: #fff; border-radius: var(--bmp-radius-md); padding: 10px 16px;
+    align-items: center; gap: 12px; box-shadow: var(--bmp-shadow-2); font-size: 13px;
+  }
+  body.editing .edit-toolbar { display: flex; }
+  .edit-toolbar .sp { flex: 1; }
+  .edit-toolbar .btn { border-color: rgba(255,255,255,.4); background: transparent; color: #fff; }
+  .edit-toolbar .btn:hover { border-color: #fff; background: rgba(255,255,255,.12); color: #fff; }
+  .edit-toolbar .btn-primary { background: var(--bmp-color-primary); border-color: var(--bmp-color-primary); }
+  .card-ops { display: none; position: absolute; top: 8px; right: 8px; gap: 4px; z-index: 5; }
+  body.editing .card-ops { display: flex; }
+  .card-ops button { width: 24px; height: 24px; border-radius: var(--bmp-radius-sm); border: 1px solid var(--bmp-border-strong); background: #fff; cursor: pointer; font-size: 12px; color: var(--bmp-text-secondary); }
+  .card-ops button:hover { color: var(--bmp-color-primary); border-color: var(--bmp-color-primary); }
+  .grid-item.card-hidden { opacity: .35; }
+  .grid-size-bar { display: none; margin-top: 6px; gap: 4px; }
+  body.editing .grid-size-bar { display: flex; }
+  .grid-size-bar span { font: var(--bmp-font-caption); padding: 1px 7px; border-radius: 10px; border: 1px solid var(--bmp-border-strong); cursor: pointer; background: #fff; }
+  .grid-size-bar span.on { background: var(--bmp-color-primary); border-color: var(--bmp-color-primary); color: #fff; }
+
+  /* 首登引导 Coach Mark */
+  .coach-mask { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 1500; }
+  .coach-mask.show { display: block; }
+  .coach-pop {
+    position: fixed; z-index: 1501; width: 300px; background: #fff; border-radius: var(--bmp-radius-md);
+    box-shadow: var(--bmp-shadow-3); padding: 16px 18px; display: none;
+  }
+  .coach-pop.show { display: block; }
+  .coach-pop h4 { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin-bottom: 6px; }
+  .coach-pop p { font-size: 13px; color: var(--bmp-text-secondary); line-height: 1.7; margin-bottom: 12px; }
+  .coach-pop .c-foot { display: flex; justify-content: space-between; align-items: center; }
+  .coach-pop .dots { display: flex; gap: 5px; }
+  .coach-pop .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--bmp-border-strong); }
+  .coach-pop .dots i.on { background: var(--bmp-color-primary); }
+  .fail-card-demo { text-align: center; padding: 30px 0; color: var(--bmp-text-secondary); font-size: 13px; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<div class="net-banner" id="netBanner">⚠ 网络连接异常，部分数据可能不是最新 <button class="btn btn-sm" onclick="this.parentElement.classList.remove('show')">关闭</button></div>
+
+<main class="portal-main">
+  <!-- 问候区 -->
+  <div class="greet-card">
+    <div>
+      <h1 id="greetText">早上好，张三</h1>
+      <div class="meta">数字化中心 · 你有 <b>6 条待办</b>、<b>3 条未读消息</b>，其中 1 条紧急待办剩余 3 小时</div>
+    </div>
+    <div class="right">
+      <div id="dateText"></div>
+      <button class="btn-ghost" onclick="location.href='todos.html'">全部待办 →</button>
+    </div>
+  </div>
+
+  <!-- 编辑模式工具条 -->
+  <div class="edit-toolbar">
+    <b>✎ 首页编辑模式</b><span style="opacity:.75">拖拽卡片标题可排序 · 点击按钮调整显隐与栅格 · 卡片集合不可增删（决议 #6）</span>
+    <span class="sp"></span>
+    <button class="btn btn-sm" onclick="resetLayout()">恢复默认模板</button>
+    <button class="btn btn-sm" onclick="exitEdit(false)">取消</button>
+    <button class="btn btn-sm btn-primary" onclick="exitEdit(true)">保存</button>
+  </div>
+
+  <!-- 布局引擎渲染区：grid 由 template_json + user_override 合并驱动 -->
+  <div class="grid-row" id="layoutGrid"></div>
+</main>
+
+<!-- 首登引导（Onboarding，UIUX 6.2） -->
+<div class="coach-mask" id="coachMask"></div>
+<div class="coach-pop" id="coachPop">
+  <h4 id="coachTitle"></h4>
+  <p id="coachDesc"></p>
+  <div class="c-foot">
+    <div class="dots" id="coachDots"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="endCoach()">跳过引导</button>
+      <button class="btn btn-sm btn-primary" id="coachNext" onclick="nextCoach()">下一步</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("home");
+
+/* 时段问候（UIUX 5.3） */
+const h = new Date().getHours();
+document.getElementById("greetText").textContent =
+  (h < 6 ? "夜深了" : h < 12 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好") + "，" + MOCK.user.name;
+const now = new Date(), wd = ["周日","周一","周二","周三","周四","周五","周六"][now.getDay()];
+document.getElementById("dateText").textContent = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")} ${wd}`;
+
+/* ===== 布局引擎：template_json + user_override 深合并（UIUX 8.3） ===== */
+let layout = JSON.parse(JSON.stringify(MOCK.layoutTemplate));
+try { const saved = localStorage.getItem("bmp_user_override"); if (saved) applyOverride(layout, JSON.parse(saved)); } catch (e) {}
+function applyOverride(tpl, ov) {
+  (ov.cards || []).forEach(o => {
+    const c = tpl.cards.find(c => c.cardId === o.cardId);
+    if (c) Object.assign(c, { order: o.order ?? c.order, visible: o.visible ?? c.visible, grid: o.grid ?? c.grid }); // cardId 集合不可增删
+  });
+}
+
+/* card manifest 注册表驱动的卡片渲染器（新卡片=注册 manifest，零平台改造） */
+const CARD_RENDERERS = {
+  "todo-list": () => {
+    const items = MOCK.todos.slice(0, 5).map(t => {
+      const u = URGENCY[t.urgency];
+      const remain = t.overdue
+        ? `<span class="t-remain text-brand fw-600">已超时 ${Math.abs(t.remainHours)}h</span>`
+        : (t.remainHours <= 4 ? `<span class="t-remain text-brand">剩余 ${t.remainHours}小时</span>` : `<span class="t-remain text-secondary">剩余 ${t.remainHours}h</span>`);
+      return `<div class="todo-item">
+        <span class="dot ${u.cls}" title="${u.label}"></span>
+        <div class="t-main">
+          <div class="t-title" onclick="location.href='${t.jumpUrl.startsWith('javascript') ? '#' : t.jumpUrl}'" title="${t.title}">${t.title}</div>
+          <div class="t-sub">[${t.source}] ${t.submitter} 提交 · ${t.time}</div>
+        </div>
+        ${remain}
+        <button class="btn btn-sm btn-primary" onclick="${t.jumpUrl.replace(/"/g, '&quot;')}">去处理</button>
+      </div>`;
+    }).join("");
+    return { title: "待办", body: items + `<div class="mt-2" style="text-align:center"><a href="todos.html" class="fs-13">查看全部 ${MOCK.todos.length} 条 →</a></div>`, more: `<a class="more" href="todos.html">更多</a>` };
+  },
+  "frequent-apps": () => {
+    const apps = [...MOCK.apps].sort((a, b) => b.freq - a.freq).slice(0, 8);
+    const cells = apps.map(a => `<div class="app-cell" onclick="msg('info','新标签页打开 ${a.name}（SSO 免登，决议 #5）')">
+      <div class="ic" style="background:${a.color}">${a.icon}</div><div class="nm">${a.name}</div></div>`).join("");
+    return { title: "常用应用", body: `<div class="app-grid">${cells}<div class="app-cell" onclick="location.href='apps.html'"><div class="ic" style="background:var(--bmp-color-info-light);color:var(--bmp-text-secondary)">＋</div><div class="nm">全部应用</div></div></div>`, note: "按最近使用频次排序" };
+  },
+  "notice-msg": () => {
+    const top = MOCK.notices.find(n => n.top);
+    const msgs = MOCK.messages.filter(m => !m.top).slice(0, 4).map(m => `<div class="msg-item" onclick="location.href='messages.html'">
+      ${m.unread ? '<span class="unread"></span>' : '<span class="read-dot"></span>'}
+      <span class="m-title">${m.title}</span><span class="m-time">${m.time.split(" ")[1] || m.time}</span></div>`).join("");
+    return { title: "消息 / 公告", body: `
+      <div class="msg-item" style="border-bottom:1px solid var(--bmp-border)" onclick="location.href='notices.html'">
+        <span class="unread"></span><span class="m-title"><b class="text-primary">📢</b> ${top.title}</span><span class="m-time">${top.time.split(" ")[0]}</span>
+      </div>${msgs}
+      <div class="mt-2" style="text-align:center"><a href="messages.html" class="fs-13">查看全部 →</a></div>` };
+  },
+  "data-metrics": () => ({ title: "数据指标（V1.5 占位）", body: `
+    <div class="fail-card-demo" style="padding:14px 0">
+      <div style="font-size:30px;margin-bottom:8px">📈</div>
+      本卡片由数据中台供数，V1.5 上线<br><span class="fs-12 text-secondary">（演示卡片降级：单卡片失败不影响其他卡片 · UIUX 5.3 规则 4）</span>
+      <div class="mt-2"><button class="btn btn-sm" onclick="msg('info','重试加载（模拟）')">重试</button></div>
+    </div>` })
+};
+
+function renderGrid() {
+  const grid = document.getElementById("layoutGrid");
+  const cards = [...layout.cards].filter(c => c.visible || document.body.classList.contains("editing"))
+    .sort((a, b) => a.order - b.order);
+  grid.innerHTML = cards.map(c => {
+    const r = CARD_RENDERERS[c.cardId] ? CARD_RENDERERS[c.cardId]() : { title: c.name, body: "<div class='empty-tip'>未注册的卡片</div>" };
+    const manifest = MOCK.cardManifest.find(m => m.cardId === c.cardId);
+    return `<div class="grid-item ${c.visible ? "" : "card-hidden"}" style="grid-column:span ${c.grid}" data-id="${c.cardId}" draggable="false">
+      <div class="card-ops">
+        <button title="上移" onclick="moveCard('${c.cardId}',-1)">↑</button>
+        <button title="下移" onclick="moveCard('${c.cardId}',1)">↓</button>
+        <button title="${c.visible ? "隐藏" : "显示"}" onclick="toggleCard('${c.cardId}')">${c.visible ? "👁" : "🚫"}</button>
+      </div>
+      <div class="card" ${document.body.classList.contains("editing") ? 'draggable="true"' : ""} style="height:100%">
+        <div class="card-head"><h3>${r.title}</h3>${r.more || ""}</div>
+        ${r.body}
+        ${r.note ? `<div class="fs-12 text-secondary mt-2">${r.note}</div>` : ""}
+      </div>
+      <div class="grid-size-bar">${[6,8,12,16,24].map(g => {
+        const min = manifest ? manifest.minGrid : 6;
+        return `<span class="${c.grid===g?"on":""} ${g<min?"":""}" style="${g<min?"opacity:.4;pointer-events:none":""}" onclick="setGrid('${c.cardId}',${g})">${g}</span>`;
+      }).join("")}<span class="fs-12 text-secondary" style="border:none">栅格${manifest ? ` · 最小 ${manifest.minGrid}` : ""}</span></div>
+    </div>`;
+  }).join("");
+  bindDrag();
+}
+
+/* 编辑模式操作 */
+function moveCard(id, dir) {
+  const sorted = [...layout.cards].sort((a, b) => a.order - b.order);
+  const i = sorted.findIndex(c => c.cardId === id), j = i + dir;
+  if (j < 0 || j >= sorted.length) return;
+  [sorted[i].order, sorted[j].order] = [sorted[j].order, sorted[i].order];
+  renderGrid();
+}
+function toggleCard(id) { const c = layout.cards.find(c => c.cardId === id); c.visible = !c.visible; renderGrid(); }
+function setGrid(id, g) { const c = layout.cards.find(c => c.cardId === id); c.grid = g; renderGrid(); }
+function bindDrag() {
+  if (!document.body.classList.contains("editing")) return;
+  let dragId = null;
+  document.querySelectorAll(".grid-item .card").forEach(el => {
+    el.addEventListener("dragstart", () => { dragId = el.closest(".grid-item").dataset.id; el.style.opacity = ".5"; });
+    el.addEventListener("dragend", () => { el.style.opacity = ""; });
+  });
+  document.querySelectorAll(".grid-item").forEach(el => {
+    el.addEventListener("dragover", e => e.preventDefault());
+    el.addEventListener("drop", e => {
+      e.preventDefault();
+      const targetId = el.dataset.id;
+      if (!dragId || dragId === targetId) return;
+      const a = layout.cards.find(c => c.cardId === dragId), b = layout.cards.find(c => c.cardId === targetId);
+      [a.order, b.order] = [b.order, a.order];
+      renderGrid(); msg("success", "卡片顺序已调整（保存后生效）");
+    });
+  });
+}
+function enterEdit() { document.body.classList.add("editing"); renderGrid(); msg("info", "已进入编辑模式：拖拽卡片可排序"); }
+function exitEdit(save) {
+  document.body.classList.remove("editing");
+  if (save) {
+    localStorage.setItem("bmp_user_override", JSON.stringify({ cards: layout.cards.map(c => ({ cardId: c.cardId, order: c.order, visible: c.visible, grid: c.grid })) }));
+    msg("success", "个人首页配置已保存（user_override_json）");
+  } else {
+    layout = JSON.parse(JSON.stringify(MOCK.layoutTemplate));
+    try { const saved = localStorage.getItem("bmp_user_override"); if (saved) applyOverride(layout, JSON.parse(saved)); } catch (e) {}
+    msg("info", "已取消本次修改");
+  }
+  renderGrid();
+}
+function resetLayout() {
+  localStorage.removeItem("bmp_user_override");
+  layout = JSON.parse(JSON.stringify(MOCK.layoutTemplate));
+  renderGrid(); msg("success", "已恢复角色默认模板");
+}
+renderGrid();
+
+/* ===== 首登引导 3 步（UIUX 6.2，sessionStorage 模拟一次性） ===== */
+const COACH = [
+  { title: "① 欢迎来到麓邦业务中台", desc: "一个账号畅行全系统。首次登录建议前往「个人设置」修改初始密码（管理员发放的随机密码仅一次性可见）。", anchor: null, pos: { top: "120px", left: "calc(50% - 150px)" } },
+  { title: "② 认识你的工作台", desc: "待办卡聚合了 CRM/OA/招聘等所有系统的审批任务，点「去处理」新标签直达源系统；应用宫格按你的使用频次自动排序。", anchor: null, pos: { top: "260px", left: "calc(50% - 150px)" } },
+  { title: "③ 自定义你的首页", desc: "点右上角头像 →「个人设置 → 自定义首页」，可调整卡片显隐、顺序与宽度；角色默认模板由管理员统一配置。", anchor: null, pos: { top: "160px", left: "calc(50% + 180px)" } }
+];
+let coachStep = 0;
+function startCoach() {
+  if (sessionStorage.getItem("bmp_onboarded")) return;
+  coachStep = 0; showCoach();
+}
+function showCoach() {
+  const c = COACH[coachStep];
+  document.getElementById("coachMask").classList.add("show");
+  const pop = document.getElementById("coachPop");
+  pop.classList.add("show");
+  pop.style.top = c.pos.top; pop.style.left = c.pos.left;
+  document.getElementById("coachTitle").textContent = c.title;
+  document.getElementById("coachDesc").textContent = c.desc;
+  document.getElementById("coachDots").innerHTML = COACH.map((_, i) => `<i class="${i === coachStep ? "on" : ""}"></i>`).join("");
+  document.getElementById("coachNext").textContent = coachStep === COACH.length - 1 ? "开始使用" : "下一步";
+}
+function nextCoach() {
+  coachStep++;
+  if (coachStep >= COACH.length) { endCoach(); return; }
+  showCoach();
+}
+function endCoach() {
+  sessionStorage.setItem("bmp_onboarded", "1");
+  document.getElementById("coachMask").classList.remove("show");
+  document.getElementById("coachPop").classList.remove("show");
+}
+setTimeout(startCoach, 600);
+
+/* 演示工具：模拟网络异常横幅（G2 状态覆盖） */
+window.demoNetError = () => document.getElementById("netBanner").classList.add("show");
+</script>
+<div class="demo-hint" style="position:fixed;left:16px;bottom:16px;background:rgba(15,23,42,.85);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;line-height:1.8;z-index:10">
+  原型演示：<a href="javascript:enterEdit()" style="color:#FFD666">进入首页编辑模式</a> ·
+  <a href="javascript:demoNetError()" style="color:#FFD666">模拟网络异常</a> ·
+  <a href="javascript:sessionStorage.removeItem('bmp_onboarded');startCoach()" style="color:#FFD666">重播首登引导</a>
+</div>
+</body>
+</html>

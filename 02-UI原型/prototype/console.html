@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>管理控制台 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 16px 18px; }
+  .stat-card .lb { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-bottom: 6px; }
+  .stat-card .vl { font: var(--bmp-font-number-lg); color: var(--bmp-text-title); }
+  .stat-card .vl small { font-size: 13px; font-weight: 400; color: var(--bmp-text-secondary); margin-left: 4px; }
+  .stat-card.alert .vl { color: var(--bmp-color-danger); }
+
+  .tree { font-size: 14px; }
+  .tree .node { padding: 7px 10px; border-radius: var(--bmp-radius-sm); cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--bmp-text-body); }
+  .tree .node:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+  .tree .node.active { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-weight: 600; }
+  .tree .node .cnt { margin-left: auto; font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+  .tree .node.disabled-node { color: var(--bmp-text-placeholder); text-decoration: line-through; }
+  .tree .children { margin-left: 18px; border-left: 1px dashed var(--bmp-border-strong); padding-left: 6px; }
+  .tree .children.collapsed { display: none; }
+  .tree-branch { margin-bottom: 2px; }
+  .tree .node.tree-parent { flex-wrap: nowrap; }
+  .tree .node.tree-leaf { padding-left: 4px; font-size: 13px; }
+  .tree .node .tree-label { flex: 1; min-width: 0; cursor: pointer; }
+  .tree-toggle { border: none; background: transparent; cursor: pointer; padding: 0 4px; width: 20px; flex-shrink: 0; color: var(--bmp-text-secondary); font-size: 11px; line-height: 1; border-radius: 3px; }
+  .tree-toggle:hover { color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+  .tree .node.tree-leaf .mono { font-size: 11px; }
+  .split-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+  .tree-panel { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 12px; position: sticky; top: 68px; max-height: calc(100vh - 92px); overflow: auto; }
+  .tree-search { width: 100%; margin-bottom: 10px; }
+
+  .ck-list .ck-item { display: flex; align-items: center; gap: 12px; background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 18px; margin-bottom: 10px; }
+  .ck-list .ck-item .st { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; flex-shrink: 0; }
+  .ck-list .ck-item .st.done { background: var(--bmp-color-success); }
+  .ck-list .ck-item .st.todo { background: var(--bmp-border-strong); color: var(--bmp-text-secondary); }
+  .ck-list .ck-item .nm { flex: 1; }
+  .ck-list .ck-item .nm.done-t { color: var(--bmp-text-secondary); text-decoration: line-through; }
+
+  .diff-box { font-family: Consolas, monospace; font-size: 12px; background: var(--dark-surface); color: #f6f5f4; border-radius: var(--bmp-radius-sm); padding: 14px; line-height: 1.9; overflow: auto; }
+  .diff-box .del { color: #FCA5A5; } .diff-box .add { color: #86EFAC; }
+
+  .editor-canvas { background: var(--bmp-bg-page); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 16px; min-height: 420px; }
+  .editor-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 10px; }
+  .ec-card { background: var(--bmp-bg-card); border: 1px dashed var(--bmp-color-primary); border-radius: var(--bmp-radius-sm); padding: 10px; position: relative; min-height: 76px; }
+  .ec-card .nm { font-size: 13px; font-weight: 600; color: var(--bmp-text-title); }
+  .ec-card .gid { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+  .ec-card .ops { position: absolute; top: 6px; right: 6px; display: flex; gap: 3px; }
+  .ec-card .ops button { width: 20px; height: 20px; font-size: 11px; border: 1px solid var(--bmp-border-strong); background: var(--bmp-bg-card); border-radius: 3px; cursor: pointer; color: var(--bmp-text-secondary); }
+  .material-panel { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 12px; }
+  .material-panel .m-item { border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); padding: 9px 12px; margin-bottom: 8px; cursor: grab; font-size: 13px; }
+  .material-panel .m-item:hover { border-color: var(--bmp-color-primary); color: var(--bmp-color-primary); }
+  .material-panel .m-item .d { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+
+  .tpl-editor { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  .tpl-preview { background: var(--bmp-bg-page); border-radius: var(--bmp-radius-md); padding: 14px; }
+  .dt-card-preview { background: var(--bmp-bg-card); border-radius: 8px; overflow: hidden; box-shadow: var(--bmp-shadow-1); }
+  .dt-card-preview .hd { background: var(--bmp-color-dingtalk); color: #fff; padding: 8px 12px; font-size: 12px; }
+  .dt-card-preview .bd { padding: 12px; font-size: 13px; line-height: 1.8; }
+  .var-chip { display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 10px; background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-size: 12px; cursor: pointer; }
+
+  .mapping-row { display: grid; grid-template-columns: 1fr 40px 1fr 90px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .log-stream { background: var(--dark-surface); color: #86EFAC; font-family: Consolas, monospace; font-size: 12px; border-radius: var(--bmp-radius-sm); padding: 12px; height: 140px; overflow: auto; line-height: 1.8; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div class="console-layout">
+  <aside class="console-side">
+    <div class="side-logo"><span class="logo-mark">麓</span>中台管理控制台</div>
+    <nav id="sideMenu"></nav>
+  </aside>
+  <div class="console-main">
+    <div class="console-topbar">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="flex items-center gap-3">
+        <span class="fs-12 text-secondary">环境：test · Nacos ns=bmp-test</span>
+        <a href="home-v2.html" class="fs-13">← 返回工作台</a>
+        <div class="dropdown">
+          <div class="avatar" style="width:28px;height:28px;font-size:12px">管</div>
+          <div class="dropdown-menu">
+            <div style="padding:8px 12px"><b>系统管理员</b><div class="fs-12 text-secondary">super_admin</div></div>
+            <div class="sep"></div><a href="javascript:logout()">退出登录</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="console-body" id="pageRoot"><!-- 页面渲染区（注册表驱动） --></div>
+  </div>
+</div>
+
+<!-- 通用详情抽屉 -->
+<div class="drawer-mask" id="d-generic-mask" onclick="closeDrawer('d-generic')"></div>
+<div class="drawer" id="d-generic">
+  <div class="drawer-head"><h3 id="dTitle">详情</h3><button class="modal-close" onclick="closeDrawer('d-generic')">✕</button></div>
+  <div class="drawer-body" id="dBody"></div>
+</div>
+
+<!-- 高危确认弹窗（HighRiskConfirm：输入名称确认 + 具体动词） -->
+<div class="modal-mask" id="m-risk">
+  <div class="modal" style="width:420px">
+    <div class="modal-head"><h3 id="riskTitle">高危操作</h3><button class="modal-close" onclick="closeModal('m-risk')">✕</button></div>
+    <div class="modal-body">
+      <div id="riskDesc" class="text-secondary" style="margin-bottom:12px;line-height:1.7"></div>
+      <div class="hr-input-hint" id="riskHint"></div>
+      <input class="input" id="riskInput" placeholder="" oninput="checkRisk()">
+      <div class="tip fs-12 text-secondary mt-2">🛡 本操作将写入审计日志（E2），并可能触发 MFA 二次验证</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('m-risk')">取消</button>
+      <button class="btn btn-danger" id="riskOk" disabled>确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用表单弹窗 -->
+<div class="modal-mask" id="m-form">
+  <div class="modal" style="width:560px">
+    <div class="modal-head"><h3 id="formTitle">新建</h3><button class="modal-close" onclick="closeModal('m-form')">✕</button></div>
+    <div class="modal-body" id="formBody"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('m-form')">取消</button>
+      <button class="btn btn-primary" id="formOk">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/mock.js"></script>
+<script src="assets/pages-config.js"></script>
+<!-- 统一交互基建（window.CM）：必须置于 pages-config.js 之后、console.js 之前 -->
+<script src="assets/console-modals.js"></script>
+<script src="assets/console.js"></script>
+</body>
+</html>

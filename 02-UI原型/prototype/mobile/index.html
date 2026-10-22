@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统一移动端原型（旧版 · 归档） · 麓邦业务中台</title>
+<link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/common.css">
+<style>
+  body { background: var(--device-frame-bg); display: flex; align-items: center; justify-content: center; gap: 48px; min-height: 100vh; padding: 24px; }
+  /* 手机壳 */
+  .phone {
+    width: 375px; height: 760px; background: #fff; border-radius: 40px; border: 10px solid var(--device-frame-ink);
+    box-shadow: var(--bmp-shadow-3); overflow: hidden; display: flex; flex-direction: column; position: relative; flex-shrink: 0;
+  }
+  .status-bar { height: 28px; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 11px; font-weight: 600; color: var(--device-frame-ink); flex-shrink: 0; }
+  /* 钉钉容器导航栏（决议 #2：以钉钉为准出稿） */
+  .dt-navbar { height: 44px; background: #fff; border-bottom: 1px solid var(--bmp-border); display: flex; align-items: center; padding: 0 12px; gap: 10px; flex-shrink: 0; }
+  .dt-navbar .back { font-size: 18px; color: var(--bmp-text-title); cursor: pointer; width: 28px; }
+  .dt-navbar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--bmp-text-title); margin-right: 28px; }
+  .dt-navbar .dt-logo { position: absolute; right: 14px; font-size: 10px; color: var(--bmp-color-dingtalk); }
+  .screen { flex: 1; overflow-y: auto; background: var(--bmp-bg-page); display: none; }
+  .screen.active { display: block; }
+  .home-indicator { height: 22px; background: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .home-indicator::after { content: ""; width: 120px; height: 4px; border-radius: 2px; background: var(--device-frame-ink); opacity: .85; }
+
+  /* 屏 1：移动首页 */
+  .m-greet { background: linear-gradient(120deg, var(--bmp-color-primary), #E4453A); color: #fff; padding: 18px 16px 20px; }
+  .m-greet h2 { font-size: 18px; margin-bottom: 4px; }
+  .m-greet .sub { font-size: 12px; opacity: .88; }
+  .m-jingang { display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; margin: -12px 12px 12px; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 4px; position: relative; }
+  .m-jingang .j { text-align: center; cursor: pointer; padding: 4px 0; }
+  .m-jingang .j .ic { width: 40px; height: 40px; border-radius: 12px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 19px; }
+  .m-jingang .j .nm { font-size: 12px; color: var(--bmp-text-body); }
+  .m-section { margin: 0 12px 12px; }
+  .m-section .s-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 8px; font-size: 14px; font-weight: 600; color: var(--bmp-text-title); }
+  .m-section .s-head a { font-size: 12px; font-weight: 400; color: var(--bmp-text-secondary); }
+  .m-todo-card { background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 13px 14px; margin-bottom: 9px; }
+  .m-todo-card .t1 { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--bmp-text-title); }
+  .m-todo-card .t2 { font-size: 12px; color: var(--bmp-text-secondary); margin: 5px 0 9px; }
+  .m-todo-card .row { display: flex; justify-content: space-between; align-items: center; }
+  .m-app-grid { display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 4px; }
+  .m-app-grid .a { text-align: center; padding: 6px 0; cursor: pointer; min-height: 44px; }
+  .m-app-grid .a .ic { width: 38px; height: 38px; border-radius: 10px; margin: 0 auto 5px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; }
+  .m-app-grid .a .nm { font-size: 11px; color: var(--bmp-text-body); }
+
+  /* 屏 2：移动待办 */
+  .m-tabs { display: flex; background: #fff; border-bottom: 1px solid var(--bmp-border); position: sticky; top: 0; z-index: 5; }
+  .m-tabs .t { flex: 1; text-align: center; padding: 11px 0; font-size: 14px; color: var(--bmp-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; }
+  .m-tabs .t.active { color: var(--bmp-color-primary); font-weight: 600; border-bottom-color: var(--bmp-color-primary); }
+  .pull-hint { text-align: center; font-size: 11px; color: var(--bmp-text-placeholder); padding: 8px 0 2px; }
+  .swipe-hint { font-size: 11px; color: var(--bmp-text-placeholder); text-align: center; padding: 6px 0 10px; }
+
+  /* 屏 3：审批详情 */
+  .m-detail { background: #fff; margin: 12px; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 16px; }
+  .m-detail h2 { font-size: 17px; color: var(--bmp-text-title); line-height: 1.5; margin: 8px 0 10px; }
+  .kv { display: flex; padding: 9px 0; border-bottom: 1px solid var(--bmp-border); font-size: 13px; }
+  .kv:last-child { border-bottom: none; }
+  .kv dt { width: 88px; color: var(--bmp-text-secondary); flex-shrink: 0; }
+  .kv dd { flex: 1; color: var(--bmp-text-title); }
+  .m-sec-t { font-size: 14px; font-weight: 600; color: var(--bmp-text-title); margin: 16px 0 8px; }
+  .m-reject-box { display: none; margin-top: 12px; }
+  .m-reject-box.show { display: block; }
+  .m-reject-box textarea { width: 100%; min-height: 76px; border: 1px solid var(--bmp-border-strong); border-radius: var(--bmp-radius-sm); padding: 9px 12px; font: var(--bmp-font-body); resize: vertical; }
+  .m-reject-box textarea:focus { outline: none; border-color: var(--bmp-color-primary); box-shadow: 0 0 0 2px var(--bmp-color-primary-light); }
+  .m-reject-box .err { display: none; margin-top: 6px; font-size: 12px; color: var(--bmp-color-danger); }
+  .m-reject-box.has-error textarea { border-color: var(--bmp-color-danger); }
+  .m-reject-box.has-error .err { display: block; }
+  .m-bottom-bar { position: absolute; left: 0; right: 0; bottom: 22px; background: #fff; border-top: 1px solid var(--bmp-border); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); display: none; gap: 10px; }
+  .m-bottom-bar.show { display: flex; }
+  .m-bottom-bar .btn { flex: 1; height: 44px; font-size: 15px; } /* 触控 ≥44px */
+
+  /* 屏 4：消息卡片落地页 */
+  .m-msg { background: #fff; margin: 12px; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 18px 16px; }
+  .m-msg h2 { font-size: 16px; color: var(--bmp-text-title); margin-bottom: 8px; }
+  .m-msg .meta { font-size: 11px; color: var(--bmp-text-placeholder); margin-bottom: 14px; }
+  .m-msg .body { font-size: 14px; line-height: 1.9; color: var(--bmp-text-body); }
+
+  /* 右侧说明面板 */
+  .notes { width: 320px; font-size: 13px; color: var(--bmp-text-body); line-height: 1.8; }
+  .notes h3 { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin-bottom: 10px; }
+  .notes .n-item { background: #fff; border-radius: var(--bmp-radius-md); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--bmp-shadow-1); }
+  .notes b { color: var(--bmp-color-primary); }
+  .notes .jump { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .notes .jump a { font-size: 12px; padding: 4px 10px; border-radius: 14px; background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+  .free-login { position: absolute; inset: 0; background: #fff; z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .free-login.show { display: flex; }
+  .spinner-lg { width: 34px; height: 34px; border: 3px solid var(--bmp-color-primary-light); border-top-color: var(--bmp-color-primary); border-radius: 50%; animation: spin .8s linear infinite; }
+</style>
+<script src="../assets/ui-style.js"></script>
+</head>
+<body>
+
+<div class="phone">
+  <div class="status-bar"><span>9:41</span><span>钉钉 · 5G ▮▮▮ 82%</span></div>
+  <div class="dt-navbar" style="position:relative">
+    <span class="back" id="navBack" onclick="goBack()">‹</span>
+    <span class="title" id="navTitle">麓邦业务中台</span>
+    <span class="dt-logo">钉钉容器</span>
+  </div>
+
+  <!-- 免登演示层（UIUX 5.6：全程无登录界面） -->
+  <div class="free-login" id="freeLogin">
+    <div class="spinner-lg"></div>
+    <div style="font-size:13px;color:var(--bmp-text-secondary)">钉钉免登中：jsapi 获取免登码 → 换取 JWT…</div>
+  </div>
+
+  <!-- 屏 1：移动首页 UI-M-01 -->
+  <div class="screen active" id="s-home">
+    <div class="m-greet">
+      <h2 id="mGreet">早上好，张三</h2>
+      <div class="sub">数字化中心 · 你有 6 条待办、3 条未读消息</div>
+    </div>
+    <div class="m-jingang">
+      <div class="j" onclick="go('s-todos','待办中心')"><div class="ic" style="background:var(--bmp-color-primary-light);color:var(--bmp-color-primary)">📝</div><div class="nm">待办</div></div>
+      <div class="j" onclick="go('s-msg','消息详情')"><div class="ic" style="background:var(--bmp-color-warning-light);color:#B45309">💬</div><div class="nm">消息</div></div>
+      <div class="j" onclick="toast('应用宫格（同 PC 应用中心，SSO 免登）')"><div class="ic" style="background:var(--bmp-color-success-light);color:var(--bmp-color-success)">🧩</div><div class="nm">应用</div></div>
+      <div class="j" onclick="toast('公告列表（同 PC 公告页）')"><div class="ic" style="background:var(--bmp-color-info-light);color:var(--bmp-text-secondary)">📢</div><div class="nm">公告</div></div>
+    </div>
+    <div class="m-section">
+      <div class="s-head">紧急待办 <a href="javascript:go('s-todos','待办中心')">全部 ›</a></div>
+      <div id="mUrgent"></div>
+    </div>
+    <div class="m-section">
+      <div class="s-head">常用应用 <span class="fs-12" style="font-weight:400;color:var(--bmp-text-placeholder)">按频次排序</span></div>
+      <div class="m-app-grid" id="mApps"></div>
+    </div>
+  </div>
+
+  <!-- 屏 2：移动待办 UI-M-02 -->
+  <div class="screen" id="s-todos">
+    <div class="m-tabs">
+      <div class="t active" id="tabTodo">待办 (0)</div>
+      <div class="t" onclick="toast('已办视图（只读，同 PC）')">已办</div>
+      <div class="t" onclick="toast('我发起的视图（含进度，同 PC）')">我发起的</div>
+    </div>
+    <div class="pull-hint">↓ 下拉刷新</div>
+    <div style="padding:0 12px" id="mTodoList"></div>
+    <div class="swipe-hint">中台自有流程任务可站内直接办理（同意/驳回）· 其他来源跳转原系统</div>
+  </div>
+
+  <!-- 屏 3：移动审批详情 UI-M-03（C3-F03：移动端可直接办理中台自有流程任务） -->
+  <div class="screen" id="s-detail">
+    <div id="mDetailBox"></div>
+    <div style="height:96px"></div>
+  </div>
+
+  <!-- 屏 4：消息卡片落地页 UI-M-04 -->
+  <div class="screen" id="s-msg">
+    <div class="m-msg">
+      <h2>合同审批结果：华宇科技合同已通过终审</h2>
+      <div class="meta">审批结果 · 2026-09-22 09:15 · 来源：站内信（钉钉卡片「查看详情」落地页）</div>
+      <div class="body">你提交的《华宇科技采购合同》已通过终审，合同编号 HT-2026-0918，可前往 CRM 下载用印版本。<br><br>审批链路：王经理 → 销售总监 → 法务 → 总经理（共 4 节点，历时 26 小时）。</div>
+      <button class="btn btn-primary" style="width:100%;height:44px;margin-top:16px" onclick="toast('跳转 CRM 合同详情（新页面，容器内导航栈保留返回）')">查看合同详情 →</button>
+    </div>
+  </div>
+
+  <!-- 底部固定操作栏（详情屏，动态渲染：站内=驳回/同意；跳转=催办/去源系统处理） -->
+  <div class="m-bottom-bar" id="bottomBar"></div>
+  <div class="home-indicator"></div>
+</div>
+
+<!-- 右侧说明 -->
+<div class="notes">
+  <h3>移动端原型说明（UI-M-01~04）</h3>
+  <div class="n-item">
+    <b>决议 #2</b>：钉钉/企微双活，本稿以<b>钉钉容器</b>为准；企微差异（导航栏、免登 API）由 container 模块抹平，不单独出稿。
+  </div>
+  <div class="n-item">
+    <b>免登流程</b>：容器内打开 → jsapi 免登码 → <span class="mono">POST /v1/auth/mobile-login</span> → 静默换 JWT → 直达。全程无登录界面；失败降级链：容器免登 → 静默 OAuth → 登录页兜底。
+    <div class="jump"><a href="javascript:replayLogin()">▶ 重播免登动画</a></div>
+  </div>
+  <div class="n-item">
+    <b>触控规范</b>：点击区 ≥44px（金刚区/列表卡/底部按钮均已按此设计）；底部操作栏避让 home indicator 安全区。
+  </div>
+  <div class="n-item">
+    <b>C3-F03 移动审批</b>：移动端可<b>直接办理中台自有流程任务</b>——待办卡片点击直达站内审批页（免登），底部「驳回 / 同意」操作，<b>驳回意见必填</b>；调用 <span class="mono">/v1/workflow/task/{id}/complete</span>；办理后待办即时消除，与 PC 端状态实时一致。
+  </div>
+  <div class="n-item">
+    <b>屏幕导航</b>：
+    <div class="jump">
+      <a href="javascript:go('s-home','麓邦业务中台')">① 移动首页</a>
+      <a href="javascript:go('s-todos','待办中心')">② 移动待办</a>
+      <a href="javascript:openDetail('AT-2001')">③ 审批详情（站内）</a>
+      <a href="javascript:go('s-msg','消息详情')">④ 消息落地页</a>
+    </div>
+  </div>
+  <div class="n-item"><a href="../index.html">← 返回原型总目录</a></div>
+  <div class="n-item"><a href="../approval.html">→ PC 统一审批中心</a></div>
+</div>
+
+<script src="../assets/mock.js"></script>
+<script>
+const navStack = [];
+function go(id, title, pushHistory = true) {
+  const cur = document.querySelector(".screen.active");
+  if (pushHistory && cur) navStack.push({ id: cur.id, title: document.getElementById("navTitle").textContent });
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.getElementById("navTitle").textContent = title;
+  // 底部操作栏仅在审批详情屏显示；离开详情屏时隐藏
+  if (id !== "s-detail") document.getElementById("bottomBar").classList.remove("show");
+  document.getElementById("navBack").style.visibility = id === "s-home" ? "hidden" : "visible";
+}
+function goBack() {
+  const prev = navStack.pop();
+  if (prev) go(prev.id, prev.title, false);
+  else go("s-home", "麓邦业务中台", false);
+}
+function toast(t) { msg("info", t); }
+function replayLogin() {
+  const fl = document.getElementById("freeLogin");
+  fl.classList.add("show");
+  setTimeout(() => { fl.classList.remove("show"); toast("免登成功：已静默换取 JWT（jti 绑定会话）"); }, 1400);
+}
+
+/* ---------- 移动待办数据：站内（中台自有流程）+ 跳转（外部系统） ---------- */
+/* 站内任务本地副本，提交后移除（与 PC 状态一致） */
+let mCenter = MOCK.workflow.approvalCenter.todo.filter(t => t.mode === "站内").map(t => ({
+  id: t.id, mode: "站内", source: t.sourceSystem, title: t.title, submitter: t.submitter.split(" · ")[0],
+  time: t.time, urgency: t.urgency, remainHours: t.remainHours, bizKey: t.bizKey, formData: t.formData
+}));
+/* 外部跳转任务（复用既有 MOCK.todos） */
+const mJump = MOCK.todos.map(t => ({
+  id: "J-" + t.id, mode: "跳转", source: t.source, title: t.title, submitter: t.submitter,
+  time: t.time, urgency: t.urgency, remainHours: t.remainHours, bizKey: `${t.source}:${t.bizType}:CT-${1000 + t.id}`, formData: null
+}));
+let mCurrent = null;
+
+function mAllTodos() {
+  return [...mCenter, ...mJump].sort((a, b) => (b.urgency - a.urgency) || (a.remainHours - b.remainHours));
+}
+function remainHtml(t) {
+  return t.remainHours < 0
+    ? `<span class="fs-12 text-brand fw-600">⏰ 已超时 ${Math.abs(t.remainHours)} 小时</span>`
+    : (t.remainHours <= 4 ? `<span class="fs-12 text-brand fw-600">⏰ 剩余 ${t.remainHours} 小时</span>`
+      : `<span class="fs-12 text-secondary">⏰ 剩余 ${t.remainHours} 小时</span>`);
+}
+function modeTag(t) {
+  return t.mode === "站内"
+    ? '<span class="tag" style="background:var(--bmp-color-primary-light);color:var(--bmp-color-primary)">站内</span>'
+    : '<span class="tag" style="background:var(--bmp-color-warning-light);color:#B45309">跳转</span>';
+}
+
+/* ---------- 渲染：待办列表 ---------- */
+function renderMobileTodos() {
+  const list = mAllTodos();
+  document.getElementById("tabTodo").textContent = `待办 (${list.length})`;
+  const box = document.getElementById("mTodoList");
+  if (!list.length) {
+    box.innerHTML = `<div class="m-todo-card" style="text-align:center;color:var(--bmp-text-secondary);font-size:13px">🎉 太棒了，待办已全部处理完成</div>`;
+    return;
+  }
+  box.innerHTML = list.map(t => {
+    const u = URGENCY[t.urgency];
+    const goBtn = t.mode === "站内"
+      ? `<button class="btn btn-sm btn-primary" style="min-height:44px" onclick="event.stopPropagation();openDetail('${t.id}')">去审批</button>`
+      : `<button class="btn btn-sm btn-primary" style="min-height:44px" onclick="event.stopPropagation();openDetail('${t.id}')">去处理</button>`;
+    return `<div class="m-todo-card" onclick="openDetail('${t.id}')">
+      <div class="t1"><span class="dot ${u.cls}"></span><span style="flex:1">${t.title}</span></div>
+      <div class="t2">[${t.source}] ${t.submitter} · ${t.time} ${modeTag(t)}</div>
+      <div class="row">
+        ${remainHtml(t)}
+        <span style="display:flex;gap:6px">
+          ${t.mode === "站内" ? `<button class="btn btn-sm" style="min-height:44px" onclick="event.stopPropagation();toast('已向当前处理人发送催办（24h 去重）')">催办</button>` : ""}
+          ${goBtn}
+        </span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------- 渲染：审批详情（formData 摘要 + 审批时间轴 + 操作） ---------- */
+function openDetail(id) {
+  const t = mAllTodos().find(x => x.id === id);
+  if (!t) return;
+  mCurrent = t;
+  document.getElementById("mDetailBox").innerHTML = renderMobileDetail(t);
+  renderMobileBottomBar(t);
+  document.getElementById("bottomBar").classList.add("show");
+  go("s-detail", "审批详情");
+}
+function renderMobileDetail(t) {
+  const u = URGENCY[t.urgency];
+  const urgency = t.urgency === 2 ? '<span class="tag tag-brand">紧急</span>'
+    : t.urgency === 1 ? '<span class="tag tag-warning">重要</span>' : '<span class="tag tag-info">普通</span>';
+  const fd = t.formData || {};
+  const schema = (t.mode === "站内") ? wfSchemaByBizKey(t.bizKey) : null;
+  const fdHtml = schema
+    ? wfRenderFormReadonly(schema, fd, "readonly")
+    : (Object.keys(fd).length
+      ? `<dl>${Object.keys(fd).map(k => `<div class="kv"><dt>${k}</dt><dd>${fd[k]}</dd></div>`).join("")}</dl>`
+      : `<dl><div class="kv"><dt>摘要</dt><dd>该审批由源系统承载，请跳转原系统查看完整表单数据</dd></div></dl>`);
+  const tl = t.formData && wfTimelineByBizKey(t.bizKey) ? wfTimelineByBizKey(t.bizKey) : null;
+  const tlHtml = tl
+    ? tl.map(x => `<div class="t-item">
+        <div style="font-size:13px;color:var(--bmp-text-title)"><b>${x.node}</b> · ${x.assignee} <span class="tag tag-info" style="margin-left:4px">${x.action}</span>${x.proxy ? '<span class="tag tag-warning" style="margin-left:4px">代理</span>' : ""}</div>
+        ${x.comment && x.comment !== "—" ? `<div class="fs-12 text-secondary mt-2">意见：${x.comment}</div>` : ""}
+        <div class="t-time mt-2">${x.time}</div>
+      </div>`).join("")
+    : `<div class="t-item"><div style="font-size:13px;color:var(--bmp-text-title)"><b>发起</b> · ${t.submitter} <span class="tag tag-info" style="margin-left:4px">发起流程</span></div><div class="t-time mt-2">${t.time}</div></div>`;
+
+  const rejectBox = t.mode === "站内"
+    ? `<div class="m-reject-box" id="mRejectBox">
+         <div class="fs-13" style="color:var(--bmp-text-title);margin-bottom:6px"><span class="text-danger">*</span> 驳回意见（必填）</div>
+         <textarea id="mRejectText" placeholder="请填写驳回原因（缺失将返回参数校验错误 · C1-F03-5）"></textarea>
+         <div class="err">驳回意见必填，请填写原因后再提交</div>
+         <button class="btn btn-danger" style="width:100%;height:44px;margin-top:10px" onclick="submitMobileReject()">确认驳回</button>
+       </div>`
+    : "";
+  const note = t.mode === "站内"
+    ? `<div class="fs-12 text-secondary mt-3" style="line-height:1.7">说明（C3-F03）：中台自有流程任务可在移动端<b>直接办理</b>，调用 <span class="mono">/v1/workflow/task/{id}/complete</span>，与 PC 端状态实时一致。</div>`
+    : `<div class="fs-12 text-secondary mt-3" style="line-height:1.7">说明：该审批由源系统承载，V1.0 移动端跳转原系统处理页（带 SSO）完成闭环。</div>`;
+
+  return `<div class="m-detail">
+    <span class="tag tag-info">${t.source}</span>
+    <span style="margin-left:6px">${urgency}</span>
+    <span style="margin-left:6px">${modeTag(t)}</span>
+    <h2>${t.title}</h2>
+    <dl>
+      <div class="kv"><dt>提交人</dt><dd>${t.submitter}</dd></div>
+      <div class="kv"><dt>提交时间</dt><dd>${t.time}</dd></div>
+      <div class="kv"><dt>bizKey</dt><dd class="mono">${t.bizKey}</dd></div>
+      ${t.remainHours < 0
+        ? `<div class="kv"><dt>时限</dt><dd class="text-brand fw-600">已超时 ${Math.abs(t.remainHours)} 小时（超时将升级提醒上级）</dd></div>`
+        : `<div class="kv"><dt>剩余时限</dt><dd class="text-brand fw-600">${t.remainHours} 小时（超时将升级提醒上级）</dd></div>`}
+    </dl>
+    <div class="m-sec-t">表单数据摘要</div>
+    ${fdHtml}
+    <div class="m-sec-t">审批时间轴</div>
+    <div class="timeline">${tlHtml}</div>
+    ${rejectBox}
+    ${note}
+  </div>`;
+}
+function renderMobileBottomBar(t) {
+  const bar = document.getElementById("bottomBar");
+  if (t.mode === "站内") {
+    bar.innerHTML = `
+      <button class="btn" style="flex:0 0 110px" onclick="showMobileReject()">驳回</button>
+      <button class="btn btn-primary" onclick="submitMobileApprove()">同意</button>`;
+  } else {
+    bar.innerHTML = `
+      <button class="btn" style="flex:0 0 110px" onclick="toast('已向当前处理人发送催办（24h 去重）')">催办</button>
+      <button class="btn btn-primary" onclick="toast('新标签打开源系统处理页（带 SSO）；V1.0 该审批不在中台内办理）')">去源系统处理</button>`;
+  }
+}
+
+/* ---------- 站内审批动作（驳回意见必填） ---------- */
+function showMobileReject() {
+  const box = document.getElementById("mRejectBox");
+  if (box) { box.classList.add("show"); box.classList.remove("has-error"); const ta = document.getElementById("mRejectText"); if (ta) ta.focus(); }
+}
+function submitMobileApprove() {
+  const t = mCurrent;
+  mCenter = mCenter.filter(x => x.id !== t.id);
+  renderMobileTodos();
+  document.getElementById("bottomBar").classList.remove("show");
+  goBack();
+  toast(`已同意「${t.title}」，待办已消除（与 PC 状态一致，写留痕）`);
+}
+function submitMobileReject() {
+  const box = document.getElementById("mRejectBox");
+  const ta = document.getElementById("mRejectText");
+  const val = (ta ? ta.value : "").trim();
+  if (!val) {
+    if (box) box.classList.add("has-error");
+    msg("error", "驳回失败：驳回意见必填，请填写原因后再提交");
+    return;
+  }
+  const t = mCurrent;
+  mCenter = mCenter.filter(x => x.id !== t.id);
+  renderMobileTodos();
+  document.getElementById("bottomBar").classList.remove("show");
+  goBack();
+  toast(`已驳回「${t.title}」，意见：${val.slice(0, 16)}${val.length > 16 ? "…" : ""}（写留痕）`);
+}
+
+/* ---------- 首页渲染 ---------- */
+const h = new Date().getHours();
+document.getElementById("mGreet").textContent = (h < 12 ? "早上好" : h < 18 ? "下午好" : "晚上好") + "，" + MOCK.user.name;
+document.getElementById("mUrgent").innerHTML = mAllTodos().filter(t => t.urgency === 2).slice(0, 2).map(t => `
+  <div class="m-todo-card" onclick="openDetail('${t.id}')">
+    <div class="t1"><span class="dot dot-urgent"></span>${t.title}</div>
+    <div class="t2">[${t.source}] ${t.submitter} · ${t.time} ${modeTag(t)}</div>
+    <div class="row"><span class="fs-12 text-brand fw-600">⏰ 剩余 ${t.remainHours} 小时</span><button class="btn btn-sm btn-primary" style="min-height:44px" onclick="event.stopPropagation();openDetail('${t.id}')">去处理</button></div>
+  </div>`).join("") || `<div class="m-todo-card" style="text-align:center;color:var(--bmp-text-secondary);font-size:13px">🎉 暂无紧急待办</div>`;
+document.getElementById("mApps").innerHTML = [...MOCK.apps].sort((a, b) => b.freq - a.freq).slice(0, 8).map(a => `
+  <div class="a" onclick="toast('打开 ${a.name}（SSO 免登）')"><div class="ic" style="background:${a.color}">${a.icon}</div><div class="nm">${a.name.split(" ")[0]}</div></div>`).join("");
+renderMobileTodos();
+document.getElementById("navBack").style.visibility = "hidden";
+setTimeout(replayLogin, 400); // 打开即演示免登
+</script>
+</body>
+</html>

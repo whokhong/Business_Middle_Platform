@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>统一审批中心 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .page-head h1 { font: var(--bmp-font-h2); color: var(--bmp-text-title); }
+  .page-head .stat { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+  .page-head .stat b { color: var(--bmp-color-primary); }
+  .ac-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ac-filters .select { width: 132px; }
+  .ac-filters .search { width: 200px; }
+
+  /* 审批卡 */
+  .ac-card {
+    background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1);
+    padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start;
+    border-left: 3px solid transparent; transition: box-shadow .15s;
+  }
+  .ac-card:hover { box-shadow: var(--bmp-shadow-2); }
+  .ac-card.u2 { border-left-color: var(--accent); }  /* 紧急 → 品牌红（UIUX §2.1-3） */
+  .ac-card.u1 { border-left-color: var(--bmp-color-warning); }
+  .ac-card.u0 { border-left-color: var(--bmp-color-info); }
+  .ac-card .ck { margin-top: 4px; width: 15px; height: 15px; cursor: pointer; accent-color: var(--bmp-color-primary); }
+  .ac-card .main { flex: 1; min-width: 0; }
+  .ac-card .t1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ac-card .t1 .title { font-size: 15px; font-weight: 600; color: var(--bmp-text-title); cursor: pointer; }
+  .ac-card .t1 .title:hover { color: var(--bmp-color-primary); }
+  .ac-card .t2 { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-top: 4px; }
+  .ac-card .side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .ac-card .remain { font: var(--bmp-font-caption); white-space: nowrap; }
+  .ac-card .ops { display: flex; gap: 4px; }
+  .tag-mode { background: var(--bmp-color-info-light); color: var(--bmp-text-secondary); }
+  .mode-in { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+  .mode-jump { background: var(--bmp-color-warning-light); color: #B45309; }
+
+  .view-panel { display: none; } .view-panel.active { display: block; }
+  .done-item, .init-item { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .done-item .title, .init-item .title { font-size: 14px; color: var(--bmp-text-title); }
+
+  /* 审批详情（页面内展开） */
+  .ac-detail { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 18px 20px; margin-bottom: 14px; border: 1px solid var(--bmp-color-primary); }
+  .ac-detail h3 { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin-bottom: 12px; }
+  .ac-detail .sec-t { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin: 18px 0 10px; }
+  .ac-detail .reject-box { display: none; margin-top: 12px; }
+  .ac-detail .reject-box.show { display: block; }
+  /* C2-F01 从应用中心跳入的发起层（?action=start&defKey=） */
+  .wf-start-panel { display: none; background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-2); padding: 18px 20px; margin-bottom: 16px; border: 1px solid var(--bmp-color-primary); }
+  .wf-start-panel.show { display: block; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<main class="portal-main">
+  <div class="page-head">
+    <h1>统一审批中心</h1>
+    <div class="ac-filters">
+      <select class="select" id="fSource"><option value="">来源：全部</option><option>中台</option><option>CRM</option><option>OA</option><option>招聘系统</option></select>
+      <select class="select" id="fMode"><option value="">类型：全部</option><option value="站内">站内审批</option><option value="跳转">跳转审批</option></select>
+      <input class="input search" id="fKw" placeholder="搜索标题 / 提交人…">
+    </div>
+  </div>
+
+  <div id="wfStartPanel" class="wf-start-panel"></div>
+
+  <div class="readonly-banner" style="background:var(--bmp-color-info-light);border-color:var(--bmp-border);color:var(--bmp-text-secondary)">
+    📌 <b>站内审批</b>在中台内直接完成（走 <span class="mono">/v1/workflow/task/{{id}}/complete</span>）；
+    <b>跳转审批</b>跳转原系统处理（带 SSO）并回写结果（C3-F01）；
+    待办键与流程业务键前缀一致：<span class="mono">{sourceSystem}:{bizType}:{bizId}</span>，内部任务键追加节点段（四段式）。
+  </div>
+
+  <div class="tabs mb-4" style="background:var(--bmp-bg-card);padding:0 16px;border-radius:var(--bmp-radius-md) var(--bmp-radius-md) 0 0">
+    <div class="tab active" data-v="todo" onclick="switchView('todo')">待我审批 <span class="badge-n" id="todoN"></span></div>
+    <div class="tab" data-v="done" onclick="switchView('done')">已办</div>
+    <div class="tab" data-v="initiated" onclick="switchView('initiated')">我发起</div>
+  </div>
+
+  <div class="view-panel active" id="v-todo"></div>
+  <div class="view-panel" id="v-done"></div>
+  <div class="view-panel" id="v-initiated"></div>
+</main>
+
+<!-- 批量浮条（勾选站内待办后浮出） -->
+<div class="batch-bar" id="batchBar">
+  <span>已选 <b id="batchN">0</b> 项</span>
+  <button class="btn btn-sm" onclick="batchApprove()">批量同意</button>
+  <button class="btn btn-sm" onclick="clearSel()">取消选择</button>
+</div>
+
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("approval");
+
+let selected = new Set();
+let expandedId = null;   // 当前展开的审批详情
+let centerTodo = MOCK.workflow.approvalCenter.todo.slice(); // 本地副本，提交后移除
+
+const URGENCY_LABEL = { 0: "普通", 1: "重要", 2: "紧急" };
+
+function sortTodo(list) {
+  return [...list].sort((a, b) => (b.urgency - a.urgency) || (a.remainHours - b.remainHours));
+}
+
+/* ---------- 待我审批视图 ---------- */
+function renderTodo() {
+  const src = document.getElementById("fSource").value;
+  const mode = document.getElementById("fMode").value;
+  const kw = document.getElementById("fKw").value.trim();
+  let list = sortTodo(centerTodo);
+  if (src) list = list.filter(t => t.sourceSystem === src);
+  if (mode) list = list.filter(t => t.mode === mode);
+  if (kw) list = list.filter(t => t.title.includes(kw) || t.submitter.includes(kw));
+  document.getElementById("todoN").textContent = list.length;
+  const box = document.getElementById("v-todo");
+
+  // 展开的详情（若仍有该条）
+  let detailHtml = "";
+  if (expandedId && list.some(t => t.id === expandedId)) {
+    detailHtml = renderDetail(list.find(t => t.id === expandedId));
+  } else { expandedId = null; }
+
+  if (!list.length) {
+    box.innerHTML = detailHtml + `<div class="card"><div class="state-box"><div class="illus">🎉</div><div class="txt">太棒了，暂无符合条件的待审批</div><a class="btn btn-sm" href="apps.html">去应用中心看看</a></div></div>`;
+    return;
+  }
+  const cards = list.map(t => {
+    const u = t.urgency;
+    const remain = t.remainHours < 0
+      ? `<span class="remain text-brand fw-600">⏰ 已超时 ${Math.abs(t.remainHours)} 小时</span>`
+      : (t.remainHours <= 4
+        ? `<span class="remain text-brand fw-600">⏰ 剩余 ${t.remainHours} 小时</span>`
+        : `<span class="remain text-secondary">剩余 ${t.remainHours} 小时</span>`);
+    const modeTag = t.mode === "站内"
+      ? `<span class="tag mode-in">站内</span>`
+      : `<span class="tag mode-jump">跳转</span>`;
+    const ops = t.mode === "站内"
+      ? `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();approve('${t.id}')">同意</button>
+         <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();openReject('${t.id}')">驳回</button>`
+      : `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();jump('${t.bizKey}')">去源系统处理</button>`;
+    const ck = t.mode === "站内"
+      ? `<input type="checkbox" class="ck" ${selected.has(t.id) ? "checked" : ""} onchange="toggleSel('${t.id}', this.checked)">`
+      : `<span style="width:15px"></span>`;
+    return `<div class="ac-card u${u}">
+      ${ck}
+      <div class="main" onclick="toggleDetail('${t.id}')" style="cursor:pointer">
+        <div class="t1">
+          <span class="dot dot-${u === 2 ? "urgent" : u === 1 ? "important" : "normal"}"></span>
+          <span class="title">${t.title}</span>
+          <span class="tag tag-info">${t.sourceSystem}</span>
+          ${modeTag}
+          ${u === 2 ? '<span class="tag tag-brand">紧急</span>' : u === 1 ? '<span class="tag tag-warning">重要</span>' : ""}
+        </div>
+        <div class="t2">${t.submitter} 提交 · ${t.time} · bizKey: <span class="mono">${t.bizKey}</span></div>
+      </div>
+      <div class="side">
+        ${remain}
+        <div class="ops">${ops}</div>
+      </div>
+    </div>`;
+  }).join("");
+  box.innerHTML = detailHtml + cards;
+}
+
+/* ---------- 审批详情（页面内展开） ---------- */
+function renderDetail(t) {
+  const fd = t.formData || {};
+  // 中台自有流程且有 formSchema → 结构化只读渲染；外部跳转流程 → 降级 key-value 平铺
+  const defKey = MOCK.defKeyFromBizKey ? MOCK.defKeyFromBizKey(t.bizKey) : "";
+  const launchCfg = (t.sourceSystem === "中台" && MOCK.getWorkflowLaunchConfig) ? MOCK.getWorkflowLaunchConfig(defKey) : { launchMode: "form" };
+  const isExtLaunch = launchCfg.launchMode === "external";
+  const schema = (!isExtLaunch && t.sourceSystem === "中台") ? wfSchemaByBizKey(t.bizKey) : null;
+  const fdHtml = isExtLaunch
+    ? `<div class="readonly-banner">表单数据在业务系统维护；中台仅存实例与待办关联。请点击下方「在业务系统查看」。</div>
+       <dl class="desc-grid mt-2"><dt>查看地址</dt><dd class="mono fs-12">${launchCfg.viewUrl || "—"}</dd></dl>`
+    : schema
+      ? wfRenderFormReadonly(schema, fd, "readonly")
+      : `<dl class="desc-grid">${Object.keys(fd).map(k => `<dt>${k}</dt><dd>${fd[k]}</dd>`).join("")}</dl>`;
+  const fdNote = isExtLaunch
+    ? `第三方页面模式：viewUrl 由流程定义步骤 1 配置（占位符 {bizKey} 跳转时替换）`
+    : schema
+      ? `标签来自流程定义 formSchema，值来自实例 formData；审批人只读查看（V1.0）`
+      : `外部集成流程或未配置 formSchema，按 key-value 平铺展示`;
+  // 从实例时间轴取时间轴（若为跳转审批，给出简化链路）
+  let tl = wfTimelineByBizKey(t.bizKey);
+  let tlHtml;
+  if (tl) {
+    tlHtml = tl.map(x => `<div class="t-item">
+        <div style="font-size:14px;color:var(--bmp-text-title)"><b>${x.node}</b> · ${x.assignee} <span class="tag tag-info" style="margin-left:4px">${x.action}</span>${x.proxy ? '<span class="tag tag-warning" style="margin-left:4px">代理</span>' : ""}</div>
+        ${x.comment && x.comment !== "—" ? `<div class="fs-13 text-secondary mt-2">意见：${x.comment}</div>` : ""}
+        <div class="t-time mt-2">${x.time}</div>
+      </div>`).join("");
+  } else {
+    tlHtml = `<div class="t-item"><div style="font-size:14px;color:var(--bmp-text-title)"><b>发起</b> · ${t.submitter} <span class="tag tag-info" style="margin-left:4px">发起流程</span></div><div class="t-time mt-2">${t.time}</div></div>
+      <div class="t-item"><div style="font-size:14px;color:var(--bmp-text-title)"><b>${t.mode === "跳转" ? "源系统处理中" : "当前节点"}</b> · 待你处理</div><div class="t-time mt-2">—</div></div>`;
+  }
+  const actionArea = t.mode === "站内"
+    ? `<div class="flex gap-2 mt-4 flex-wrap">
+         ${isExtLaunch ? `<button class="btn btn-primary" onclick="wfOpenBizView('${defKey}','${t.bizKey}')">在业务系统查看</button>` : `<button class="btn btn-primary" onclick="approve('${t.id}')">同意</button>`}
+         <button class="btn${isExtLaunch ? "" : " btn-danger"}" onclick="openReject('${t.id}')">驳回</button>
+         ${isExtLaunch ? `<button class="btn" onclick="approve('${t.id}')">同意</button>` : ""}
+         <button class="btn" onclick="toggleDetail(null)">收起</button>
+       </div>
+       <div class="reject-box" id="rejectBox-${t.id}">
+         <div class="field"><label><span class="req">*</span>驳回意见（必填）</label>
+           <textarea class="input" id="rejectText-${t.id}" placeholder="请填写驳回原因（缺失将返回参数校验错误 · C1-F03-5）"></textarea>
+           <div class="err-msg" id="rejectErr-${t.id}">驳回意见必填，请填写后再提交</div></div>
+         <div class="flex gap-2">
+           <button class="btn btn-danger" onclick="submitReject('${t.id}')">确认驳回</button>
+           <button class="btn" onclick="closeReject('${t.id}')">取消</button>
+         </div>
+       </div>`
+    : `<div class="readonly-banner mt-4">
+         🔗 该审批为<b>跳转审批</b>（业务系统未接中台工作流），需跳转原系统处理（带 SSO），处理结果由源系统回写。
+       </div>
+       <div class="flex gap-2 mt-4">
+         <button class="btn btn-primary" onclick="jump('${t.bizKey}')">去源系统处理</button>
+         <button class="btn" onclick="toggleDetail(null)">收起</button>
+       </div>`;
+  return `<div class="ac-detail" id="detail-${t.id}">
+    <h3>审批详情 · ${t.title}</h3>
+    <dl class="desc-grid">
+      <dt>来源系统</dt><dd>${t.sourceSystem}</dd>
+      <dt>处理方式</dt><dd><span class="tag ${t.mode === "站内" ? "mode-in" : "mode-jump"}">${t.mode}审批</span></dd>
+      <dt>提交人</dt><dd>${t.submitter}</dd>
+      <dt>提交时间</dt><dd class="mono">${t.time}</dd>
+      <dt>bizKey</dt><dd class="mono">${t.bizKey}</dd>
+      <dt>紧急度</dt><dd>${URGENCY_LABEL[t.urgency]}${t.remainHours < 0 ? ` · <span class="text-brand">已超时 ${Math.abs(t.remainHours)}h</span>` : ` · 剩余 ${t.remainHours}h`}</dd>
+    </dl>
+    <div class="sec-t">表单数据 formData</div>
+    ${fdHtml}
+    <div class="fs-12 text-secondary mt-2">ℹ ${fdNote}</div>
+    <div class="sec-t">审批时间轴（wf_approval_record）</div>
+    <div class="timeline">${tlHtml}</div>
+    ${actionArea}
+  </div>`;
+}
+function toggleDetail(id) {
+  expandedId = (expandedId === id) ? null : id;
+  renderTodo();
+}
+function openReject(id) {
+  expandedId = id;
+  renderTodo();
+  const box = document.getElementById("rejectBox-" + id);
+  if (box) { box.classList.add("show"); const ta = document.getElementById("rejectText-" + id); if (ta) ta.focus(); }
+}
+function closeReject(id) {
+  const box = document.getElementById("rejectBox-" + id);
+  if (box) box.classList.remove("show");
+}
+
+/* ---------- 站内审批动作 ---------- */
+function approve(id) {
+  const t = centerTodo.find(x => x.id === id);
+  if (!t) return;
+  centerTodo = centerTodo.filter(x => x.id !== id);
+  selected.delete(id);
+  if (expandedId === id) expandedId = null;
+  updateBatch();
+  renderTodo();
+  msg("success", `已同意「${t.title}」，待办已完结（写留痕 / 呼叫下一节点）`);
+}
+function submitReject(id) {
+  const ta = document.getElementById("rejectText-" + id);
+  const err = document.getElementById("rejectErr-" + id);
+  const val = (ta ? ta.value : "").trim();
+  if (!val) {
+    if (err) err.style.display = "block";
+    if (ta) ta.closest(".field").classList.add("has-error");
+    msg("error", "驳回失败：驳回意见必填，请填写原因后再提交（参数校验错误）");
+    return;
+  }
+  const t = centerTodo.find(x => x.id === id);
+  centerTodo = centerTodo.filter(x => x.id !== id);
+  selected.delete(id);
+  if (expandedId === id) expandedId = null;
+  updateBatch();
+  renderTodo();
+  msg("success", `已驳回「${t ? t.title : id}」，意见：${val.slice(0, 20)}${val.length > 20 ? "…" : ""}（写留痕）`);
+}
+function jump(bizKey) {
+  msg("info", `原型演示：新标签页打开源系统处理页（带 SSO 免登）；处理结果回写中台。bizKey=${bizKey}`);
+}
+
+/* ---------- 已办 / 我发起视图 ---------- */
+function renderDone() {
+  document.getElementById("v-done").innerHTML = MOCK.workflow.approvalCenter.done.map(t => {
+    const modeTag = t.mode === "站内" ? `<span class="tag mode-in">站内</span>` : `<span class="tag mode-jump">跳转</span>`;
+    const cls = t.result.indexOf("驳回") >= 0 ? "tag-danger" : "tag-success";
+    return `<div class="done-item">
+      <div>
+        <div class="title">${t.title}</div>
+        <div class="t2 fs-12 text-secondary mt-2"><span class="tag tag-info">${t.sourceSystem}</span> ${modeTag} · ${t.time}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center"><span class="tag ${cls}">${t.result}</span><span class="fs-12 text-secondary">只读</span></div>
+    </div>`;
+  }).join("");
+}
+function renderInitiated() {
+  document.getElementById("v-initiated").innerHTML = MOCK.workflow.approvalCenter.initiated.map(t => {
+    const cls = t.progress === "已完成" ? "tag-success" : t.progress === "已终止" ? "tag-danger" : "tag-warning";
+    const modeTag = t.mode === "站内" ? `<span class="tag mode-in">站内</span>` : `<span class="tag mode-jump">跳转</span>`;
+    const dk = t.defKey || (MOCK.defKeyFromBizKey ? MOCK.defKeyFromBizKey(t.bizType) : t.bizType);
+    const launch = (t.sourceSystem === "中台" && MOCK.getWorkflowLaunchConfig) ? MOCK.getWorkflowLaunchConfig(dk) : { launchMode: "form" };
+    const viewBtn = launch.launchMode === "external"
+      ? `<button class="btn btn-sm btn-primary" onclick="wfOpenBizView('${dk}','BMP:${dk}:DEMO-001')">在业务系统查看</button>`
+      : "";
+    return `<div class="init-item">
+      <div>
+        <div class="title">${t.title}</div>
+        <div class="fs-12 text-secondary mt-2"><span class="tag tag-info">${t.sourceSystem}</span> ${modeTag} · 发起于 ${t.time} · 当前节点：${t.node}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="tag ${cls}">${t.progress}</span>
+        ${viewBtn}
+        ${t.progress === "处理中" ? `<button class="btn btn-sm" onclick="msg('success','已向当前处理人发送催办（复用 A4 催办，24h 去重）')">催办</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+function wfOpenBizView(defKey, bizKey) {
+  if (MOCK.openWorkflowViewUrl) MOCK.openWorkflowViewUrl(defKey, { bizKey });
+  else msg("info", "原型：打开业务系统查看页");
+}
+
+/* ---------- 视图切换 / 批量 ---------- */
+function switchView(v) {
+  document.querySelectorAll(".tabs .tab").forEach(t => t.classList.toggle("active", t.dataset.v === v));
+  document.querySelectorAll(".view-panel").forEach(p => p.classList.toggle("active", p.id === "v-" + v));
+  clearSel();
+  expandedId = null;
+  renderTodo();
+}
+function toggleSel(id, on) {
+  if (on) {
+    if (selected.size >= 50) { msg("warning", "批量操作上限 50 条"); renderTodo(); return; }
+    selected.add(id);
+  } else selected.delete(id);
+  updateBatch();
+}
+function updateBatch() {
+  document.getElementById("batchN").textContent = selected.size;
+  document.getElementById("batchBar").classList.toggle("show", selected.size > 0);
+}
+function clearSel() { selected.clear(); updateBatch(); }
+function batchApprove() {
+  const n = selected.size;
+  centerTodo = centerTodo.filter(x => !selected.has(x.id));
+  selected.clear();
+  updateBatch();
+  renderTodo();
+  msg("success", `已批量同意 ${n} 条（批量操作逐条生效并留痕 · C3-F02）`);
+}
+
+["fSource", "fMode"].forEach(id => document.getElementById(id).addEventListener("change", renderTodo));
+document.getElementById("fKw").addEventListener("input", renderTodo);
+
+/* ---------- 应用中心 / 订阅跳入：发起流程（C2-F01-4） ---------- */
+function wfStartFromQuery() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("action") !== "start" || !q.get("defKey")) return;
+  const defKey = q.get("defKey");
+  const meta = MOCK.getWorkflowDefMeta ? MOCK.getWorkflowDefMeta(defKey) : null;
+  const panel = document.getElementById("wfStartPanel");
+  if (!meta) {
+    panel.classList.add("show");
+    panel.innerHTML = `<h3 style="font:var(--bmp-font-h3);margin-bottom:8px">无法发起</h3><p class="text-secondary">流程 <span class="mono">${defKey}</span> 未发布或已停用。</p><a class="btn btn-sm mt-3" href="apps.html">返回应用中心</a>`;
+    return;
+  }
+  const launch = MOCK.getWorkflowLaunchConfig ? MOCK.getWorkflowLaunchConfig(defKey) : { launchMode: "form" };
+  if (launch.launchMode === "external") {
+    const bizKey = "BMP:" + defKey + ":DRAFT-" + Date.now();
+    panel.classList.add("show");
+    panel.innerHTML = `
+      <h3 style="font:var(--bmp-font-h3);margin-bottom:8px">发起流程 · ${meta.name} <span class="mono fs-12 text-secondary">v${meta.version}</span></h3>
+      <div class="readonly-banner">第三方页面填报：点击下方按钮新标签打开业务系统，无需在中台填写表单。</div>
+      <div class="flex gap-2 mt-4">
+        <button class="btn btn-primary" onclick="wfStartExternalFromApps('${defKey}','${bizKey}')">前往第三方填报</button>
+        <button class="btn" onclick="location.href='apps.html'">取消</button>
+      </div>`;
+    return;
+  }
+  const schema = (MOCK.workflow.formSchemas || {})[defKey] || null;
+  const sample = (MOCK.workflow.formDataSamples || {})[defKey] || {};
+  const body = schema
+    ? wfRenderFormReadonly(schema, sample, "edit")
+    : `<div class="readonly-banner">未配置 formSchema，为自由表单模式。</div>`;
+  panel.classList.add("show");
+  panel.innerHTML = `
+    <h3 style="font:var(--bmp-font-h3);margin-bottom:8px">发起流程 · ${meta.name} <span class="mono fs-12 text-secondary">v${meta.version}</span></h3>
+    ${body}
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-primary" onclick="wfSubmitFromApps('${defKey}','${meta.name.replace(/'/g, "\\'")}')">提交发起</button>
+      <button class="btn" onclick="location.href='apps.html'">取消</button>
+    </div>
+    <div class="fs-12 text-secondary mt-2">来自应用中心 · <span class="mono">POST /v1/workflow/instance</span></div>`;
+}
+function wfStartExternalFromApps(defKey, bizKey) {
+  if (MOCK.openWorkflowFillUrl && MOCK.openWorkflowFillUrl(defKey, { bizKey })) {
+    location.href = "approval.html";
+  }
+}
+function wfSubmitFromApps(defKey, name) {
+  const schema = (MOCK.workflow.formSchemas || {})[defKey] || null;
+  if (!schema) { msg("success", `已发起「${name}」（自由表单模式）`); location.href = "approval.html"; return; }
+  const panel = document.getElementById("wfStartPanel");
+  const values = {};
+  schema.fields.forEach(f => {
+    const el = panel && panel.querySelector(`[data-fk="${f.key}"]`);
+    if (!el) return;
+    if (f.type === "number" || f.type === "amount") values[f.key] = el.value === "" ? null : Number(el.value);
+    else values[f.key] = el.value;
+  });
+  const errors = wfValidateForm(schema, values);
+  if (errors.length) { msg("error", "表单校验未通过：" + errors.map(e => e.message).join("；")); return; }
+  msg("success", `已发起「${name}」，实例进入「我发起」（原型演示）`);
+  location.href = "approval.html";
+}
+
+/* ---------- 初始化 ---------- */
+wfStartFromQuery();
+renderTodo();
+renderDone();
+renderInitiated();
+</script>
+</body>
+</html>

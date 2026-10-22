@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>公告 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .notice-list { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); }
+  .n-row { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--bmp-border); cursor: pointer; }
+  .n-row:last-child { border-bottom: none; }
+  .n-row:hover { background: var(--surface); }
+  .n-row .title { flex: 1; font-size: 14px; color: var(--bmp-text-title); }
+  .n-row .title.unread { font-weight: 600; }
+  .n-row .meta { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); white-space: nowrap; }
+  .n-detail { background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 28px 32px; max-width: 860px; }
+  .n-detail h2 { font: var(--bmp-font-h1); color: var(--bmp-text-title); margin: 12px 0 10px; }
+  .n-detail .meta { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); display: flex; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--bmp-border); margin-bottom: 20px; }
+  .n-detail .content { font-size: 14px; line-height: 2; color: var(--bmp-text-body); }
+  .n-detail .content p { margin-bottom: 12px; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<main class="portal-main" style="max-width:1000px">
+  <div id="stateHost"></div>
+  <div id="listPane">
+    <h1 style="font:var(--bmp-font-h2);color:var(--bmp-text-title);margin-bottom:16px">公告通知</h1>
+    <div class="notice-list" id="noticeList"></div>
+  </div>
+  <div id="detailPane" class="hidden"></div>
+</main>
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("");
+function renderList() {
+  const sorted = [...MOCK.notices].sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0));
+  document.getElementById("noticeList").innerHTML = sorted.map(n => `
+    <div class="n-row" onclick="openNotice(${n.id})">
+      ${n.read ? "" : '<span style="width:8px;height:8px;border-radius:50%;background:var(--bmp-color-danger);flex-shrink:0"></span>'}
+      ${n.read ? '<span style="width:8px"></span>' : ""}
+      <span class="title ${n.read ? "" : "unread"}">${n.top ? '<b class="text-primary">📢 [置顶]</b> ' : ""}${n.title}</span>
+      <span class="tag tag-info">${n.dept}</span>
+      <span class="meta">${n.time}</span>
+    </div>`).join("");
+}
+function openNotice(id) {
+  const n = MOCK.notices.find(x => x.id === id);
+  n.read = true;
+  document.getElementById("listPane").classList.add("hidden");
+  const pane = document.getElementById("detailPane");
+  pane.classList.remove("hidden");
+  pane.innerHTML = `<div class="n-detail">
+    <a class="fs-13" href="javascript:backList()">← 返回公告列表</a>
+    <h2>${n.title}</h2>
+    <div class="meta"><span>发布部门：${n.dept}</span><span>发布时间：${n.time}</span><span>阅读统计：326/512 人已读</span></div>
+    <div class="content"><p>${n.body}</p>
+      <div class="field" style="margin-top:16px">
+        <label>附件</label>
+        <div class="wf-form-attach" style="margin-bottom:6px">📎 Q3组织架构调整方案.pdf <button class="btn-text" onclick="msg('success','附件下载中：Q3组织架构调整方案.pdf（原型演示）')">下载</button></div>
+        <div class="wf-form-attach">📎 调整对照表.xlsx <button class="btn-text" onclick="msg('success','附件下载中：调整对照表.xlsx（原型演示）')">下载</button></div>
+      </div>
+      <p style="color:var(--bmp-text-secondary);font-size:12px">正文支持富文本 · 已读回执自动上报（当前时间打开即回执）</p>
+    </div>
+  </div>`;
+  window.scrollTo(0, 0);
+}
+function backList() {
+  document.getElementById("detailPane").classList.add("hidden");
+  document.getElementById("listPane").classList.remove("hidden");
+  renderList(); // 返回列表保留已读态（T3-05 验收）
+}
+/* 五态演示（UIUX §4.2） */
+function renderPage() { stateSwitcher("stateHost", function () { applyState(); }); applyState(); }
+function applyState() {
+  var st = pageState();
+  var lp = document.getElementById("listPane"), dp = document.getElementById("detailPane");
+  var old = document.getElementById("stateBox");
+  if (st === "normal") {
+    if (lp) { lp.style.display = ""; lp.classList.remove("hidden"); }
+    if (old) old.remove();
+    renderList();
+    return;
+  }
+  if (lp) lp.style.display = "none";
+  if (dp) dp.classList.add("hidden");
+  var box = old;
+  if (!box) { box = document.createElement("div"); box.id = "stateBox"; document.getElementById("stateHost").after(box); }
+  renderStateBox(box, st, { name: "公告", emptyText: "暂无公告", emptyHint: "管理员发布后将在此展示", action: "去应用中心看看", actionHref: "apps.html" });
+}
+renderPage();
+</script>
+</body>
+</html>

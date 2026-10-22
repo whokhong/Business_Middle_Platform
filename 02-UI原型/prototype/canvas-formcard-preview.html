@@ -1,0 +1,643 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>画布字段卡预览</title>
+<!-- 变量统一取自外链 Token 层（Notion 暖色体系），本页不再内嵌 :root 副本，
+     否则页面级变量会覆盖 tokens.css 导致回到旧冷灰色系 -->
+<link rel="stylesheet" href="assets/tokens.css">
+<style>/* ============================================================
+   本页组件样式（画布 / 字段卡 / 工具栏等业务样式）
+   变量统一由 assets/tokens.css 提供（Notion 暖色体系双轨制）
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font: var(--bmp-font-body);
+  color: var(--bmp-text-body);
+  background: var(--bmp-bg-page);
+  font-variant-numeric: tabular-nums;
+}
+a { color: var(--bmp-color-primary); text-decoration: none; }
+a:hover { color: var(--bmp-color-primary-dark); }
+ul, ol { list-style: none; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 16px; border-radius: var(--bmp-radius-btn);
+  border: 1px solid var(--bmp-border-strong); background: #fff;
+  font: var(--bmp-font-body); color: var(--bmp-text-body);
+  cursor: pointer; transition: all .15s ease-out; white-space: nowrap;
+}
+.btn:hover { color: var(--bmp-color-primary); border-color: var(--bmp-color-primary); }
+.btn-primary { background: var(--bmp-color-primary); border-color: var(--bmp-color-primary); color: #fff; }
+.btn-primary:hover { background: var(--bmp-color-primary-dark); border-color: var(--bmp-color-primary-dark); color: #fff; }
+.btn-danger { background: var(--bmp-color-danger); border-color: var(--bmp-color-danger); color: #fff; }
+.btn-danger:hover { opacity: .88; color: #fff; }
+.btn-text { border: none; background: transparent; color: var(--bmp-color-primary); padding: 0 6px; height: auto; }
+.btn-text:hover { color: var(--bmp-color-primary-dark); background: transparent; }
+.btn-text.danger { color: var(--bmp-color-danger); }
+.btn-sm { height: 26px; padding: 0 10px; font-size: 12px; }
+.btn-lg { height: 40px; padding: 0 24px; font-size: 16px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.btn.loading::before { content: ""; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 标签 ---------- */
+.tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--bmp-radius-sm); font: var(--bmp-font-caption); }
+.tag-success { background: var(--bmp-color-success-light); color: var(--bmp-color-success); }
+.tag-warning { background: var(--bmp-color-warning-light); color: #B45309; }
+.tag-danger  { background: var(--bmp-color-danger-light);  color: var(--bmp-color-danger); }
+.tag-info    { background: var(--bmp-color-info-light);    color: var(--bmp-text-secondary); }
+.tag-primary { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+
+/* 待办紧急度圆点 */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.dot-urgent { background: var(--accent); }
+.dot-important { background: var(--bmp-color-warning); }
+.dot-normal { background: var(--bmp-color-info); }
+
+/* ---------- 表单 ---------- */
+.field { margin-bottom: 16px; }
+.field > label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--bmp-text-title); }
+.field > label .req { color: var(--bmp-color-danger); margin-right: 2px; }
+.input, .select, textarea.input {
+  width: 100%; height: 32px; padding: 0 12px;
+  border: 1px solid var(--bmp-border-strong); border-radius: var(--bmp-radius-sm);
+  font: var(--bmp-font-body); color: var(--bmp-text-body); background: #fff;
+  transition: border-color .15s;
+}
+textarea.input { height: auto; padding: 8px 12px; resize: vertical; }
+.input:focus, .select:focus, textarea.input:focus { outline: none; border-color: var(--bmp-color-primary); box-shadow: 0 0 0 2px var(--bmp-color-primary-light); }
+.input::placeholder { color: var(--bmp-text-placeholder); }
+.field .err-msg { display: none; margin-top: 4px; font: var(--bmp-font-caption); color: var(--bmp-color-danger); }
+.field.has-error .input { border-color: var(--bmp-color-danger); }
+.field.has-error .err-msg { display: block; }
+.field .tip { margin-top: 4px; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--bmp-bg-card); border-radius: var(--bmp-radius-md);
+  box-shadow: var(--bmp-shadow-1); padding: var(--bmp-space-4);
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.card-head h3 { font: var(--bmp-font-h3); color: var(--bmp-text-title); }
+.card-head .more { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); cursor: pointer; }
+.card-head .more:hover { color: var(--bmp-color-primary); }
+
+/* ---------- 表格 ---------- */
+.table-wrap { background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); overflow: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font: var(--bmp-font-body); }
+.tbl th {
+  text-align: left; padding: 10px 12px; background: var(--surface-sunken); white-space: nowrap;
+  font-weight: 600; color: var(--bmp-text-title); border-bottom: 1px solid var(--bmp-border); font-size: 13px;
+}
+.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--bmp-border); color: var(--bmp-text-body); vertical-align: middle; }
+.tbl tr:hover td { background: var(--surface); }
+.tbl tr.selected td { background: var(--bmp-color-primary-light); }
+.tbl .ops { white-space: nowrap; }
+.tbl .ops .btn-text + .btn-text { margin-left: 4px; }
+.pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 16px; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+.pagination .pg { min-width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--bmp-radius-sm); cursor: pointer; border: 1px solid var(--bmp-border); background: #fff; padding: 0 6px; }
+.pagination .pg.active { background: var(--bmp-color-primary); color: #fff; border-color: var(--bmp-color-primary); }
+
+/* ---------- Tabs ---------- */
+.tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--bmp-border); }
+.tabs .tab {
+  padding: 10px 2px; cursor: pointer; font-size: 14px; color: var(--bmp-text-secondary);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s;
+}
+.tabs .tab:hover { color: var(--bmp-color-primary); }
+.tabs .tab.active { color: var(--bmp-color-primary); border-bottom-color: var(--bmp-color-primary); font-weight: 600; }
+.tabs .tab .badge-n { margin-left: 4px; }
+
+/* 角标 */
+.badge-n {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; background: var(--bmp-color-danger); color: #fff;
+  font: var(--bmp-font-caption); font-size: 11px;
+}
+
+/* ---------- 弹窗 / 抽屉 ---------- */
+.modal-mask {
+  display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+  z-index: 1000; align-items: center; justify-content: center;
+}
+.modal-mask.show { display: flex; }
+.modal {
+  width: 480px; max-width: calc(100vw - 32px); max-height: 84vh; overflow: auto;
+  background: #fff; border-radius: var(--bmp-radius-lg); box-shadow: var(--bmp-shadow-3);
+  animation: pop .18s ease-out;
+}
+@keyframes pop { from { transform: scale(.96); opacity: 0; } }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 8px; }
+.modal-head h3 { font: var(--bmp-font-h3); color: var(--bmp-text-title); }
+.modal-close { cursor: pointer; border: none; background: none; font-size: 18px; color: var(--bmp-text-secondary); line-height: 1; }
+.modal-close:hover { color: var(--bmp-text-title); }
+.modal-body { padding: 8px 20px 16px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; }
+
+.drawer-mask { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 1000; }
+.drawer-mask.show { display: block; }
+.drawer {
+  position: fixed; top: 0; right: -660px; width: 640px; max-width: 92vw; height: 100vh;
+  background: #fff; box-shadow: var(--bmp-shadow-3); z-index: 1001;
+  transition: right .2s ease-out; display: flex; flex-direction: column;
+}
+.drawer.show { right: 0; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--bmp-border); }
+.drawer-head h3 { font: var(--bmp-font-h3); color: var(--bmp-text-title); }
+.drawer-body { flex: 1; overflow: auto; padding: 20px 24px; }
+
+/* ---------- Message / Notification ---------- */
+#msg-root { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.msg-toast {
+  display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+  background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-2);
+  font-size: 14px; animation: drop .2s ease-out; border: 1px solid var(--bmp-border);
+}
+@keyframes drop { from { transform: translateY(-12px); opacity: 0; } }
+.msg-toast .ic { font-size: 15px; }
+.msg-toast.success .ic { color: var(--bmp-color-success); }
+.msg-toast.error .ic { color: var(--bmp-color-danger); }
+.msg-toast.info .ic { color: var(--bmp-color-info); }
+
+/* ---------- 全局状态（UIUX 4.2） ---------- */
+.state-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 0; color: var(--bmp-text-secondary); }
+.state-box .illus { font-size: 44px; opacity: .8; }
+.state-box .txt { font-size: 14px; }
+.state-box .code { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+
+.skeleton { position: relative; overflow: hidden; background: var(--surface-hover); border-radius: var(--bmp-radius-sm); }
+.skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent);
+  animation: shimmer 1.3s infinite;
+}
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.sk-line { height: 14px; margin-bottom: 10px; }
+.sk-line.w60 { width: 60%; } .sk-line.w80 { width: 80%; } .sk-line.w40 { width: 40%; }
+.sk-block { height: 96px; border-radius: var(--bmp-radius-md); }
+
+/* 网络异常横幅 */
+.net-banner {
+  display: none; padding: 8px 16px; background: var(--bmp-color-danger-light);
+  color: var(--bmp-color-danger); font-size: 13px; text-align: center;
+  border-bottom: 1px solid #FECACA;
+}
+.net-banner.show { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+/* 只读横幅（权威源同步时，UI-C-06/07） */
+.readonly-banner {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px; margin-bottom: 12px;
+  background: var(--bmp-color-warning-light); border: 1px solid #FDE68A;
+  border-radius: var(--bmp-radius-sm); font-size: 13px; color: #92400E;
+}
+
+/* 高危确认输入 */
+.hr-input-hint { font-size: 13px; color: var(--bmp-text-secondary); margin-bottom: 8px; }
+.hr-input-hint code { background: var(--bmp-color-info-light); padding: 1px 6px; border-radius: 3px; color: var(--bmp-text-title); font-weight: 600; }
+
+/* ---------- 门户顶栏 ---------- */
+.portal-topbar {
+  height: var(--bmp-topbar-h); background: #fff; box-shadow: var(--bmp-shadow-1);
+  display: flex; align-items: center; padding: 0 24px; gap: 32px;
+  position: sticky; top: 0; z-index: 100;
+}
+.portal-logo { display: flex; align-items: center; gap: 10px; font: var(--bmp-font-h3); color: var(--bmp-text-title); cursor: pointer; }
+.portal-logo .logo-mark {
+  width: 30px; height: 30px; border-radius: 6px; background: var(--bmp-color-primary);
+  color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;
+}
+.portal-nav { display: flex; gap: 4px; flex: 1; }
+.portal-nav a {
+  padding: 6px 14px; border-radius: var(--bmp-radius-sm); color: var(--bmp-text-body);
+  display: inline-flex; align-items: center; gap: 5px; font-size: 14px;
+}
+.portal-nav a:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+.portal-nav a.active { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-weight: 600; }
+.portal-right { display: flex; align-items: center; gap: 16px; }
+.icon-btn { position: relative; border: none; background: none; font-size: 18px; cursor: pointer; color: var(--bmp-text-secondary); padding: 4px; }
+.icon-btn:hover { color: var(--bmp-color-primary); }
+.icon-btn .badge-n { position: absolute; top: -4px; right: -8px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--bmp-color-primary-light);
+  color: var(--bmp-color-primary); display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.dropdown { position: relative; }
+.dropdown-menu {
+  display: none; position: absolute; right: 0; top: calc(100% + 8px); min-width: 160px;
+  background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-2);
+  padding: 6px; z-index: 200;
+}
+.dropdown:hover .dropdown-menu { display: block; }
+.dropdown-menu a { display: block; padding: 8px 12px; border-radius: var(--bmp-radius-sm); color: var(--bmp-text-body); font-size: 14px; }
+.dropdown-menu a:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+.dropdown-menu .sep { height: 1px; background: var(--bmp-border); margin: 4px 0; }
+
+.portal-main { max-width: 1440px; margin: 0 auto; padding: var(--bmp-space-6); }
+
+/* ---------- 管理控制台外壳 ---------- */
+.console-layout { display: flex; min-height: 100vh; }
+.console-side {
+  width: var(--bmp-console-menu-w); background: #fff; border-right: 1px solid var(--bmp-border);
+  flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow: auto; padding-bottom: 24px;
+}
+.console-side .side-logo { display: flex; align-items: center; gap: 10px; padding: 14px 20px; font: var(--bmp-font-h3); color: var(--bmp-text-title); border-bottom: 1px solid var(--bmp-border); }
+.console-side .side-logo .logo-mark { width: 28px; height: 28px; border-radius: 6px; background: var(--bmp-color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.menu-group { padding: 8px 12px 0; }
+.menu-group .g-title { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); padding: 10px 8px 4px; }
+.menu-group a {
+  display: block; padding: 8px 10px; border-radius: var(--bmp-radius-sm);
+  color: var(--bmp-text-body); font-size: 14px; margin-bottom: 2px;
+}
+.menu-group a:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+.menu-group a.active { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-weight: 600; }
+.console-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.console-topbar {
+  height: 52px; background: #fff; border-bottom: 1px solid var(--bmp-border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+  position: sticky; top: 0; z-index: 90;
+}
+.breadcrumb { font-size: 13px; color: var(--bmp-text-secondary); }
+.breadcrumb b { color: var(--bmp-text-title); font-weight: 600; }
+.console-body { padding: var(--bmp-space-6); flex: 1; }
+
+/* 列表页范式：筛选区 + 操作栏 */
+.filter-bar {
+  background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1);
+  padding: 16px 16px 4px; margin-bottom: 12px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 16px;
+}
+.filter-bar .field { margin-bottom: 12px; }
+.filter-bar .f-ops { grid-column: 4; display: flex; justify-content: flex-end; gap: 8px; align-items: flex-start; padding-bottom: 12px; }
+.list-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.list-toolbar .left { display: flex; gap: 8px; align-items: center; }
+.list-toolbar .right { display: flex; gap: 8px; align-items: center; color: var(--bmp-text-secondary); font-size: 13px; }
+
+/* 批量浮条 */
+.batch-bar {
+  display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--bmp-text-title); color: #fff; border-radius: var(--bmp-radius-md);
+  padding: 10px 20px; gap: 16px; align-items: center; box-shadow: var(--bmp-shadow-3); z-index: 500;
+}
+.batch-bar.show { display: flex; }
+.batch-bar .btn { border-color: rgba(255,255,255,.4); background: transparent; color: #fff; }
+.batch-bar .btn:hover { border-color: #fff; }
+
+/* 步骤条（向导） */
+.steps { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+.steps .step { display: flex; align-items: center; gap: 8px; }
+.steps .step .n {
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--bmp-color-info-light); color: var(--bmp-text-secondary); font-size: 13px; font-weight: 600;
+}
+.steps .step .t { font-size: 14px; color: var(--bmp-text-secondary); }
+.steps .step.active .n { background: var(--bmp-color-primary); color: #fff; }
+.steps .step.active .t { color: var(--bmp-text-title); font-weight: 600; }
+.steps .step.done .n { background: var(--bmp-color-success-light); color: var(--bmp-color-success); }
+.steps .line { width: 72px; height: 1px; background: var(--bmp-border-strong); margin: 0 12px; }
+
+/* 描述列表（详情抽屉） */
+.desc-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; font-size: 14px; }
+.desc-grid dt { color: var(--bmp-text-secondary); }
+.desc-grid dd { color: var(--bmp-text-title); }
+
+/* 时间线 */
+.timeline { border-left: 2px solid var(--bmp-border); padding-left: 16px; margin-left: 6px; }
+.timeline .t-item { position: relative; padding-bottom: 16px; }
+.timeline .t-item::before {
+  content: ""; position: absolute; left: -22px; top: 5px; width: 10px; height: 10px;
+  border-radius: 50%; background: #fff; border: 2px solid var(--bmp-color-primary);
+}
+.timeline .t-time { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+
+/* 空态/错误态快速类 */
+.empty-tip { text-align: center; padding: 40px 0; color: var(--bmp-text-secondary); }
+.empty-tip .big { font-size: 40px; margin-bottom: 8px; }
+
+/* ---------- 工作流引擎组件（C1/C2/C3） ---------- */
+
+/* 配置向导：配置方式切换卡 */
+.wf-mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wf-mode { border: 2px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 14px 16px; cursor: pointer; transition: all .15s; }
+.wf-mode:hover { border-color: var(--bmp-color-primary); }
+.wf-mode.sel { border-color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+.wf-mode .ic { font-size: 22px; margin-bottom: 4px; }
+
+/* 配置向导：模板卡 */
+.wf-tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.wf-tpl-card { border: 2px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 12px 14px; cursor: pointer; transition: all .15s; }
+.wf-tpl-card:hover { border-color: var(--bmp-color-primary); }
+.wf-tpl-card.sel { border-color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+.wf-tpl-card .nm { font-size: 14px; font-weight: 600; color: var(--bmp-text-title); }
+.wf-tpl-card .ds { font-size: 12px; color: var(--bmp-text-secondary); line-height: 1.6; margin: 4px 0 8px; }
+.wf-tpl-card .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+/* 空白模板卡片：虚线边框 + 新建标识，与预置模板视觉区分（选中态沿用 .sel） */
+.wf-tpl-card.blank { border-style: dashed; border-color: var(--bmp-border-strong); background: var(--bmp-bg-page); position: relative; }
+.wf-tpl-card.blank:hover { border-color: var(--bmp-color-primary); border-style: dashed; }
+.wf-tpl-card.blank.sel { border-color: var(--bmp-color-primary); border-style: dashed; background: var(--bmp-color-primary-light); }
+.wf-tpl-card .wf-tpl-badge { position: absolute; top: -10px; right: 10px; font: var(--bmp-font-caption); font-weight: 600; color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); border: 1px solid var(--bmp-color-primary); border-radius: var(--bmp-radius-sm); padding: 1px 8px; }
+.wf-tpl-card .wf-tpl-plus { color: var(--bmp-color-primary); font-weight: 700; margin-right: 4px; }
+
+/* 配置向导：节点行 */
+.wf-node-head, .wf-node-row { display: grid; grid-template-columns: 40px 1fr 150px 140px 80px; gap: 10px; align-items: center; }
+.wf-node-head { padding: 0 0 8px; border-bottom: 1px solid var(--bmp-border); margin-bottom: 8px; }
+.wf-node-row { padding: 8px 0; border-bottom: 1px solid var(--bmp-border); }
+.wf-node-row .seq { text-align: center; color: var(--bmp-text-secondary); font-weight: 600; }
+
+/* 配置向导：路由行 */
+.wf-route-head, .wf-route-row { display: grid; grid-template-columns: 1fr 28px 180px 110px 80px; gap: 10px; align-items: center; }
+.wf-route-head { padding: 0 0 8px; border-bottom: 1px solid var(--bmp-border); margin-bottom: 8px; }
+.wf-route-row { padding: 8px 0; border-bottom: 1px solid var(--bmp-border); }
+
+/* 校验面板 */
+.wf-check-list { display: flex; flex-direction: column; gap: 6px; }
+.wf-check-item { display: grid; grid-template-columns: 26px 26px 1fr 1.6fr; gap: 10px; align-items: center; padding: 9px 12px; border-radius: var(--bmp-radius-sm); border: 1px solid var(--bmp-border); }
+.wf-check-item.ok { background: var(--bmp-color-success-light); border-color: var(--bmp-color-success); }
+.wf-check-item.fail { background: var(--bmp-color-danger-light); border-color: var(--bmp-color-danger); }
+.wf-check-item .seq { font-weight: 600; color: var(--bmp-text-secondary); text-align: center; }
+.wf-check-item .nm { color: var(--bmp-text-title); font-weight: 600; }
+.wf-check-item .dt { color: var(--bmp-text-secondary); line-height: 1.6; }
+
+/* 审批人解析预览 */
+.wf-parse-list { display: flex; flex-direction: column; gap: 6px; }
+.wf-parse-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); flex-wrap: wrap; }
+.wf-parse-item.warn { background: var(--bmp-color-warning-light); border-color: var(--bmp-color-warning); }
+.wf-parse-item .nm { font-weight: 600; color: var(--bmp-text-title); min-width: 120px; }
+.wf-parse-item .rs { flex: 1; }
+.wf-parse-item .by { white-space: nowrap; }
+
+/* 状态机示意 */
+.wf-state-machine { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
+.wf-state-machine .sm-box { border: 2px solid var(--bmp-color-primary); border-radius: var(--bmp-radius-md); padding: 12px 20px; text-align: center; font-weight: 600; color: var(--bmp-text-title); min-width: 120px; }
+.wf-state-machine .sm-box.draft { border-color: var(--bmp-text-placeholder); }
+.wf-state-machine .sm-box.pub { border-color: var(--bmp-color-success); background: var(--bmp-color-success-light); }
+.wf-state-machine .sm-box.stop { border-color: var(--bmp-color-warning); background: var(--bmp-color-warning-light); }
+.wf-state-machine .sm-sub { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); font-weight: 400; margin-top: 4px; }
+.wf-state-machine .sm-arrow { display: flex; align-items: center; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+.wf-sm-note { margin-top: 12px; font-size: 13px; color: var(--bmp-text-secondary); line-height: 2; }
+
+/* ---------- 工作流 DAG 可视化配置画布（UI-WF-02 增量，纯手写 SVG） ---------- */
+/* 双视图切换分段控件 */
+.wf-view-switch { display: inline-flex; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); overflow: hidden; background: var(--bmp-bg-card); }
+.wf-view-switch button { border: 0; background: transparent; padding: 7px 16px; font: var(--bmp-font-body); color: var(--bmp-text-body); cursor: pointer; transition: all .15s; }
+.wf-view-switch button:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+.wf-view-switch button.active { background: var(--bmp-color-primary); color: #fff; font-weight: 600; }
+
+/* 画布三栏容器 */
+.wf-canvas-wrap { display: grid; grid-template-columns: 180px 1fr 260px; gap: 12px; align-items: start; }
+.wf-canvas-palette { background: var(--bmp-bg-card); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 12px; box-shadow: var(--bmp-shadow-1); }
+.wf-canvas-ptitle { margin: 0 0 10px; font: var(--bmp-font-h3); color: var(--bmp-text-title); font-size: 13px; }
+.wf-canvas-palette-item { display: flex; flex-direction: column; gap: 2px; border: 1px dashed var(--bmp-border-strong); border-radius: var(--bmp-radius-sm); padding: 9px 10px; margin-bottom: 8px; cursor: grab; background: var(--bmp-bg-page); transition: all .15s; }
+.wf-canvas-palette-item:hover { border-color: var(--bmp-color-primary); color: var(--bmp-color-primary); }
+.wf-canvas-palette-item .lbl { font-size: 13px; font-weight: 600; color: var(--bmp-text-title); }
+.wf-canvas-palette-item .hint { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+.wf-canvas-palette-item.disabled { opacity: .45; cursor: not-allowed; border-style: solid; }
+
+/* 画布舞台与工具栏 */
+.wf-canvas-stage { position: relative; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); background: var(--bmp-bg-card); box-shadow: var(--bmp-shadow-1); overflow: hidden; }
+.wf-canvas-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--bmp-border); background: var(--bmp-bg-page); flex-wrap: wrap; }
+.wf-canvas-svg { display: block; width: 100%; height: 460px; background: var(--bmp-bg-card); cursor: default; user-select: none; touch-action: none; }
+.wf-canvas-grid-line { fill: none; stroke: var(--bmp-border); stroke-width: 1; opacity: .7; }
+
+/* 节点形状 */
+.wf-canvas-node { cursor: move; }
+.wf-canvas-node .shape { fill: var(--bmp-bg-card); stroke: var(--bmp-color-info); stroke-width: 1.5; transition: stroke .12s; }
+.wf-canvas-node.approval .shape { stroke: var(--bmp-color-primary); }
+.wf-canvas-node.gateway .shape { fill: var(--bmp-color-warning-light); stroke: var(--bmp-color-warning); }
+.wf-canvas-node.start .shape { fill: var(--bmp-color-success-light); stroke: var(--bmp-color-success); }
+.wf-canvas-node.end .shape { fill: var(--bmp-color-info-light); stroke: var(--bmp-color-info); }
+.wf-canvas-node .nt { font: 600 13px var(--bmp-font-family); fill: var(--bmp-text-title); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.wf-canvas-node .tt { font: var(--bmp-font-caption); fill: var(--bmp-text-secondary); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.wf-canvas-node.sel .shape { stroke-width: 3; stroke: var(--bmp-color-primary); }
+.wf-canvas-node.bad .shape { stroke: var(--bmp-color-danger); stroke-width: 2.5; }
+.wf-canvas-node.warn .shape { stroke: var(--bmp-color-warning); stroke-width: 2.5; stroke-dasharray: 6 4; }
+
+/* 连线锚点 */
+.wf-canvas-anchor { fill: var(--bmp-bg-card); stroke: var(--bmp-color-primary); stroke-width: 1.5; cursor: crosshair; }
+.wf-canvas-anchor:hover { fill: var(--bmp-color-primary); }
+
+/* 边 */
+.wf-canvas-edge { fill: none; stroke: var(--bmp-color-info); stroke-width: 1.6; }
+.wf-canvas-edge.default { stroke-dasharray: 5 4; }
+.wf-canvas-edge.sel { stroke: var(--bmp-color-primary); stroke-width: 2.6; }
+.wf-canvas-edge.bad { stroke: var(--bmp-color-danger); stroke-width: 2.4; }
+.wf-canvas-edge-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
+.wf-canvas-edge-label { font: var(--bmp-font-caption); fill: var(--bmp-text-body); pointer-events: none; }
+.wf-canvas-edge-label.def { fill: var(--bmp-color-warning); }
+.wf-canvas-temp-link { stroke: var(--bmp-color-primary); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+.wf-canvas-arrow { fill: var(--bmp-color-info); }
+.wf-canvas-arrow.sel { fill: var(--bmp-color-primary); }
+.wf-canvas-arrow.bad { fill: var(--bmp-color-danger); }
+
+/* 画布内「发起表单」字段卡（挂在 START 左侧，直接展示 formSchema 字段） */
+.wf-formcard .body, .wf-formcard-head .head { fill: var(--bmp-bg-card); stroke: var(--bmp-color-success); stroke-width: 1.2; }
+.wf-formcard-head .head { stroke-dasharray: 5 3; }
+.wf-formcard-head { cursor: pointer; }
+.wf-formcard-head:hover .head { fill: var(--bmp-color-success-light); }
+.wf-formcard-head .ht { font: 600 12px var(--bmp-font-family); fill: var(--bmp-text-title); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard-head .hc { font: var(--bmp-font-caption); fill: var(--bmp-color-success); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard { cursor: pointer; }
+.wf-formcard .row { fill: var(--bmp-bg-page); stroke: transparent; stroke-width: 1; }
+.wf-formcard-row { cursor: pointer; }
+.wf-formcard-row:hover .row { fill: var(--bmp-color-success-light); stroke: var(--bmp-color-success); }
+.wf-formcard .fl { font: var(--bmp-font-caption); fill: var(--bmp-text-body); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard .ft { font: var(--bmp-font-caption); fill: var(--bmp-text-placeholder); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard .fr { font: 600 12px var(--bmp-font-family); fill: var(--bmp-color-danger); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard .fe { font: var(--bmp-font-caption); fill: var(--bmp-text-placeholder); dominant-baseline: middle; pointer-events: none; }
+.wf-formcard-link { fill: none; stroke: var(--bmp-color-success); stroke-width: 1.4; stroke-dasharray: 5 4; }
+
+/* 属性面板 */
+.wf-canvas-props { background: var(--bmp-bg-card); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 12px; box-shadow: var(--bmp-shadow-1); min-height: 300px; }
+.wf-canvas-stat2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wf-canvas-stat2 > div { text-align: center; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); padding: 8px; }
+.wf-canvas-stat2 b { display: block; font: var(--bmp-font-number-lg); font-size: 20px; color: var(--bmp-text-title); }
+.wf-canvas-stat2 span { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+
+/* 校验提示区 */
+.wf-canvas-validate { margin-top: 12px; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); padding: 12px; background: var(--bmp-bg-card); }
+.wf-canvas-stats { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.wf-canvas-chip { font: var(--bmp-font-caption); border: 1px solid var(--bmp-border); border-radius: 12px; padding: 3px 10px; color: var(--bmp-text-secondary); }
+.wf-canvas-chip b { color: var(--bmp-text-title); }
+.wf-canvas-chip.ok { border-color: var(--bmp-color-success); color: var(--bmp-color-success); }
+.wf-canvas-chip.err { border-color: var(--bmp-color-danger); color: var(--bmp-color-danger); }
+.wf-canvas-chip.warn { border-color: var(--bmp-color-warning); color: var(--bmp-color-warning); }
+.wf-canvas-vlist { display: flex; flex-direction: column; gap: 6px; }
+.wf-canvas-vitem { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.6; }
+.wf-canvas-vitem .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; background: var(--bmp-text-placeholder); }
+.wf-canvas-vitem.error { color: var(--bmp-color-danger); }
+.wf-canvas-vitem.error .dot { background: var(--bmp-color-danger); }
+.wf-canvas-vitem.warn { color: var(--bmp-color-warning); }
+.wf-canvas-vitem.warn .dot { background: var(--bmp-color-warning); }
+.wf-canvas-vitem.ok { color: var(--bmp-color-success); }
+.wf-canvas-vitem.ok .dot { background: var(--bmp-color-success); }
+
+/* 定义 JSON 预览 */
+.wf-canvas-json { background: var(--bmp-color-info-light); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); padding: 14px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.7; color: var(--bmp-text-body); overflow: auto; max-height: 60vh; white-space: pre; }
+
+/* ---------- 发起表单：formSchema 设计器 + 渲染器（formSchema 由流程定义承载） ---------- */
+/* 模式说明行（配置方式已上移至入口，此处仅显示并可切换） */
+.wf-form-modebar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; margin-bottom: 14px; flex-wrap: wrap;
+  border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm);
+  background: var(--bmp-color-info-light); font-size: 13px; color: var(--bmp-text-secondary);
+}
+.wf-form-modebar b { color: var(--bmp-text-title); }
+
+/* 设计器骨架：左字段列表 + 右属性面板（与画布三栏范式一致） */
+.wf-form-design { display: grid; grid-template-columns: 1fr 320px; gap: 12px; align-items: start; }
+.wf-form-list { background: var(--bmp-bg-card); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 12px; }
+.wf-form-list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.wf-form-list-head b { font: var(--bmp-font-h3); color: var(--bmp-text-title); font-size: 13px; }
+.wf-form-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.wf-form-title-row label { font-size: 13px; color: var(--bmp-text-secondary); white-space: nowrap; }
+
+/* 字段行 */
+.wf-form-field-item {
+  display: grid; grid-template-columns: 22px 26px 1fr auto; gap: 8px; align-items: center;
+  padding: 8px 10px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm);
+  background: var(--bmp-bg-card); transition: all .15s;
+}
+.wf-form-field-item:hover { border-color: var(--bmp-color-primary); }
+.wf-form-field-item.sel { border-color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+.wf-form-field-item .handle { color: var(--bmp-text-placeholder); cursor: grab; text-align: center; }
+.wf-form-field-item .seq { text-align: center; color: var(--bmp-text-secondary); font-weight: 600; font-size: 12px; }
+.wf-form-field-item .info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wf-form-field-item .nm { font-size: 13px; font-weight: 600; color: var(--bmp-text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-form-field-item .meta { font: var(--bmp-font-caption); color: var(--bmp-text-placeholder); }
+.wf-form-field-item .ops { display: flex; gap: 2px; }
+.wf-form-field-item .ops button {
+  width: 22px; height: 22px; border: 1px solid var(--bmp-border-strong); background: #fff;
+  border-radius: 3px; cursor: pointer; color: var(--bmp-text-secondary); font-size: 11px;
+}
+.wf-form-field-item .ops button:hover { border-color: var(--bmp-color-primary); color: var(--bmp-color-primary); }
+.wf-form-field-item .ops button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 属性面板 */
+.wf-form-props { background: var(--bmp-bg-card); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 12px; min-height: 320px; }
+.wf-form-props .p-title { margin: 0 0 10px; font: var(--bmp-font-h3); color: var(--bmp-text-title); font-size: 13px; }
+.wf-form-opt-row { display: grid; grid-template-columns: 1fr 1fr 26px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.wf-form-opt-row button { width: 26px; height: 26px; border: 1px solid var(--bmp-border-strong); background: #fff; border-radius: 3px; cursor: pointer; color: var(--bmp-color-danger); font-size: 12px; }
+
+/* 只读渲染 / 预览容器 */
+.wf-form-readonly, .wf-form-preview { background: var(--bmp-color-info-light); border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); padding: 14px; }
+
+/* 附件 chip */
+.wf-form-attach {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; margin: 2px 4px 2px 0;
+  border: 1px solid var(--bmp-border); border-radius: 12px; background: var(--bmp-bg-card);
+  font-size: 12px; color: var(--bmp-text-body);
+}
+
+/* 填写模式 */
+.wf-form-fill .field { margin-bottom: 14px; }
+.wf-form-checks { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.wf-form-checks label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--bmp-text-body); }
+
+/* 工具类 */
+.flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+.mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; } .mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; }
+.text-secondary { color: var(--bmp-text-secondary); } .text-danger { color: var(--bmp-color-danger); }
+.text-success { color: var(--bmp-color-success); } .text-warning { color: #B45309; } .text-primary { color: var(--bmp-color-primary); }
+.fs-12 { font-size: 12px; } .fs-13 { font-size: 13px; } .fw-600 { font-weight: 600; }
+.hidden { display: none !important; }
+.pointer { cursor: pointer; }
+.mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+
+body{background:var(--bmp-bg-page);padding:20px;font-family:var(--bmp-font-family)}
+.wf-canvas-svg{display:block;width:900px;height:460px;background:var(--bmp-bg-card)}
+</style></head><body>
+<h3 style="font:600 16px/24px sans-serif;margin-bottom:12px">画布上的「发起表单」字段卡（渲染实况）</h3>
+<svg class="wf-canvas-svg" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="wfdGrid" width="22" height="22" patternUnits="userSpaceOnUse">
+        <path class="wf-canvas-grid-line" d="M 22 0 L 0 0 0 22"></path>
+      </pattern>
+      <marker id="wfdArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path class="wf-canvas-arrow" d="M0,0 L0,6 L9,3 z"></path></marker>
+      <marker id="wfdArrowSel" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path class="wf-canvas-arrow sel" d="M0,0 L0,6 L9,3 z"></path></marker>
+      <marker id="wfdArrowBad" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path class="wf-canvas-arrow bad" d="M0,0 L0,6 L9,3 z"></path></marker>
+    </defs>
+    <g transform="translate(-3.578125,52.375) scale(0.79296875)">
+      <rect x="-4000" y="-4000" width="12000" height="12000" fill="url(#wfdGrid)"></rect>
+      
+      <path class="wf-canvas-edge-hit" data-edge-hit="e1" d="M 164 83 C 227 83, 227 89, 290 89"></path>
+      <path class="wf-canvas-edge" d="M 164 83 C 227 83, 227 89, 290 89" marker-end="url(#wfdArrow)" data-edge="e1"></path>
+      
+      
+      <path class="wf-canvas-edge-hit" data-edge-hit="e2" d="M 450 89 C 490 89, 480 89, 520 89"></path>
+      <path class="wf-canvas-edge" d="M 450 89 C 490 89, 480 89, 520 89" marker-end="url(#wfdArrow)" data-edge="e2"></path>
+      
+      
+      <path class="wf-canvas-edge-hit" data-edge-hit="e3" d="M 680 89 C 720 89, 710 106, 750 106"></path>
+      <path class="wf-canvas-edge" d="M 680 89 C 720 89, 710 106, 750 106" marker-end="url(#wfdArrow)" data-edge="e3"></path>
+      
+      
+      <path class="wf-canvas-edge-hit" data-edge-hit="e4" d="M 842 106 C 911 106, 911 83, 980 83"></path>
+      <path class="wf-canvas-edge" d="M 842 106 C 911 106, 911 83, 980 83" marker-end="url(#wfdArrow)" data-edge="e4"></path>
+      <text class="wf-canvas-edge-label" x="911" y="88.5" text-anchor="middle">amount &gt; 50000</text>
+      
+      <path class="wf-canvas-edge-hit" data-edge-hit="e5" d="M 842 106 C 911 106, 911 83, 980 83"></path>
+      <path class="wf-canvas-edge default" d="M 842 106 C 911 106, 911 83, 980 83" marker-end="url(#wfdArrow)" data-edge="e5"></path>
+      <text class="wf-canvas-edge-label" x="911" y="88.5" text-anchor="middle">（其他情况）</text>
+      <text class="wf-canvas-edge-label def" x="911" y="100.5" text-anchor="middle">默认</text>
+      <path class="wf-formcard-link" d="M 168 162 C 168 140, 112 128, 112 106" marker-end="url(#wfdArrow)"></path>
+    <g class="wf-formcard-head" data-formcard="1">
+      <rect class="head" x="60" y="162" width="216" height="34" rx="8"></rect>
+      <text class="ht" x="72" y="179">📝 发起表单</text>
+      <text class="hc" x="264" y="179" text-anchor="end">5 字段</text>
+    </g>
+    <g class="wf-formcard" data-formcard="1">
+      <rect class="body" x="60" y="196" width="216" height="192" rx="8"></rect>
+      <g class="wf-formcard-row" data-formcard="1" data-formfield="contractName">
+      <rect class="row" x="68" y="204" width="200" height="30" rx="5"></rect>
+      <text class="fr" x="72" y="219">*</text>
+      <text class="fl" x="84" y="219">合同名称</text>
+      <text class="ft" x="264" y="219" text-anchor="end">单行文本</text>
+    </g><g class="wf-formcard-row" data-formcard="1" data-formfield="amount">
+      <rect class="row" x="68" y="242" width="200" height="30" rx="5"></rect>
+      <text class="fr" x="72" y="257">*</text>
+      <text class="fl" x="84" y="257">合同金额</text>
+      <text class="ft" x="264" y="257" text-anchor="end">金额</text>
+    </g><g class="wf-formcard-row" data-formcard="1" data-formfield="contractType">
+      <rect class="row" x="68" y="280" width="200" height="30" rx="5"></rect>
+      <text class="fr" x="72" y="295">*</text>
+      <text class="fl" x="84" y="295">合同类型</text>
+      <text class="ft" x="264" y="295" text-anchor="end">下拉单选</text>
+    </g><g class="wf-formcard-row" data-formcard="1" data-formfield="payTerms">
+      <rect class="row" x="68" y="318" width="200" height="30" rx="5"></rect>
+      
+      <text class="fl" x="72" y="333">付款条件</text>
+      <text class="ft" x="264" y="333" text-anchor="end">多行文本</text>
+    </g><g class="wf-formcard-row" data-formcard="1" data-formfield="attachment">
+      <rect class="row" x="68" y="356" width="200" height="30" rx="5"></rect>
+      
+      <text class="fl" x="72" y="371">合同扫描件</text>
+      <text class="ft" x="264" y="371" text-anchor="end">附件</text>
+    </g>
+    </g>
+      <g class="wf-canvas-node start" data-node="start">
+      <rect class="shape" x="60" y="60" width="104" height="46" rx="23"></rect>
+      <text class="nt" x="112" y="85">开始</text>
+      <text class="tt" x="112" y="98">开始</text>
+      <circle class="wf-canvas-anchor" cx="164" cy="83" r="6" data-anchor="start"></circle></g><g class="wf-canvas-node approval" data-node="n1">
+      <rect class="shape" x="290" y="60" width="160" height="58" rx="8"></rect>
+      <text class="nt" x="370" y="91">部门负责人审批</text>
+      <text class="tt" x="370" y="104">审批</text>
+      <circle class="wf-canvas-anchor" cx="450" cy="89" r="6" data-anchor="n1"></circle></g><g class="wf-canvas-node approval" data-node="n2">
+      <rect class="shape" x="520" y="60" width="160" height="58" rx="8"></rect>
+      <text class="nt" x="600" y="91">分管领导审批</text>
+      <text class="tt" x="600" y="104">审批</text>
+      <circle class="wf-canvas-anchor" cx="680" cy="89" r="6" data-anchor="n2"></circle></g><g class="wf-canvas-node gateway" data-node="g1">
+      <polygon class="shape" points="796,60 842,106 796,152 750,106"></polygon>
+      <text class="nt" x="796" y="106">条件网关</text>
+      <text class="tt" x="796" y="124">网关</text>
+      <circle class="wf-canvas-anchor" cx="842" cy="106" r="6" data-anchor="g1"></circle></g><g class="wf-canvas-node end" data-node="end1">
+      <rect class="shape" x="980" y="60" width="104" height="46" rx="23"></rect>
+      <text class="nt" x="1032" y="85">结束</text>
+      <text class="tt" x="1032" y="98">结束</text>
+      </g>
+      
+    </g></svg>
+</body></html>

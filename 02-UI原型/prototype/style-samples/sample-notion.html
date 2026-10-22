@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>应用中心 · 视觉样稿（Notion·Claude 暖色风）</title>
+<style>
+  /* ============================================================
+     麓邦业务中台 · 应用中心样稿
+     风格：Notion / Claude 暖色风
+     参数：暖白底 #f6f5f4 · 细边框 rgba(0,0,0,.1) · 暖中性色阶
+     ============================================================ */
+
+  :root {
+    /* 表面 */
+    --page-bg: #ffffff;
+    --surface: #f6f5f4;        /* 区块 / 卡片底：暖白，带黄褐底调 */
+    --surface-hover: #efedea;
+    --dark-surface: #31302e;
+
+    /* 文字 */
+    --text-primary: rgba(0, 0, 0, .95);
+    --text-secondary: #615d59;  /* 暖灰 500 */
+    --text-weak: #a39e98;       /* 暖灰 300 */
+
+    /* 强调 */
+    --accent: #C8161D;          /* 麓邦红 */
+    --accent-warm: #dd5b00;     /* 暖橙：hover 辅助 */
+
+    /* 边框 & 阴影 */
+    --line: 1px solid rgba(0, 0, 0, .1);   /* 细如耳语的边框 */
+    --shadow-soft:
+      rgba(0, 0, 0, .04) 0 4px 18px,
+      rgba(0, 0, 0, .027) 0 2px 8px,
+      rgba(0, 0, 0, .02) 0 .8px 3px;
+    --shadow-lift:
+      rgba(0, 0, 0, .05) 0 8px 28px,
+      rgba(0, 0, 0, .035) 0 3px 10px,
+      rgba(0, 0, 0, .025) 0 1px 4px;
+
+    /* 圆角 */
+    --r-card: 8px;
+    --r-pill: 9999px;
+
+    --font: Inter, -apple-system, "PingFang SC", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+
+  /* ---------- ① 顶栏（毛玻璃 / 半透明，随滚动悬浮） ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 28px;
+    background: rgba(255, 255, 255, .72);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-name {
+    font-size: 15px; font-weight: 700; letter-spacing: -.2px;
+    color: var(--text-primary);
+  }
+  .brand-sep { width: 1px; height: 16px; background: rgba(0, 0, 0, .14); }
+  .brand-sub { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+
+  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .tb-search {
+    display: flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 12px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-pill);
+    color: var(--text-secondary);
+    font-size: 14px;
+    transition: background .15s, color .15s;
+  }
+  .tb-search:hover { background: var(--surface-hover); color: var(--text-primary); }
+  .tb-bell {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    background: transparent; border: none; border-radius: var(--r-pill);
+    color: var(--text-secondary);
+    transition: background .15s, color .15s;
+  }
+  .tb-bell:hover { background: var(--surface); color: var(--text-primary); }
+  .tb-bell .dot {
+    position: absolute; top: 7px; right: 7px;
+    width: 7px; height: 7px; border-radius: var(--r-pill);
+    background: var(--accent);
+    border: 1.5px solid #ffffff;
+  }
+  .avatar {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: var(--r-pill);
+    background: var(--dark-surface);
+    color: #f6f5f4; font-size: 13px; font-weight: 600;
+  }
+
+  /* ---------- 页面容器 ---------- */
+  .page { max-width: 1040px; margin: 0 auto; padding: 40px 28px 96px; }
+
+  /* ---------- ② 页面标题区 ---------- */
+  .title-area {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; margin-bottom: 28px;
+  }
+  .title-area h1 {
+    margin: 0 0 10px;
+    font-size: 48px; font-weight: 700; line-height: 1.00;
+    letter-spacing: -1.5px;
+    color: var(--text-primary);
+  }
+  .subtitle {
+    margin: 0;
+    font-size: 16px; font-weight: 400; line-height: 1.50;
+    color: var(--text-secondary);
+  }
+  .btn-ghost {
+    flex: none;
+    height: 38px; padding: 0 16px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    color: var(--text-primary);
+    font-size: 14px; font-weight: 500;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-ghost:hover { background: var(--surface-hover); border-color: rgba(0, 0, 0, .18); }
+
+  /* ---------- ③ 智能搜索框（AI 融入点 1） ---------- */
+  .smart-search { margin-bottom: 36px; }
+  .search-box {
+    display: flex; align-items: center; gap: 12px;
+    height: 56px; padding: 0 16px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .search-box:focus-within {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, .22);
+    box-shadow: var(--shadow-soft);
+  }
+  .ai-ic { display: flex; color: var(--accent); flex: none; }
+  .search-box input {
+    flex: 1; height: 100%;
+    border: none; background: transparent; outline: none;
+    font-size: 16px; font-weight: 400; color: var(--text-primary);
+  }
+  .search-box input::placeholder { color: var(--text-weak); }
+  .kbd {
+    flex: none; padding: 4px 9px;
+    background: #ffffff;
+    border: var(--line);
+    border-radius: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: var(--text-secondary);
+  }
+  .search-hint {
+    margin: 12px 2px 0;
+    font-size: 14px; font-weight: 500; line-height: 1.43;
+    color: var(--text-weak);
+  }
+
+  /* ---------- 区块通用标题 ---------- */
+  .sec-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .sec-head h2 {
+    margin: 0;
+    font-size: 22px; font-weight: 700; line-height: 1.27;
+    letter-spacing: -.25px;
+    color: var(--text-primary);
+  }
+  .sec-note {
+    margin-left: auto;
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: var(--text-weak);
+  }
+  .badge-ai {
+    padding: 3px 9px;
+    background: var(--accent);
+    color: #ffffff;
+    border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+  }
+
+  /* ---------- ④ AI 为你推荐（AI 融入点 2） ---------- */
+  .recommend { margin-bottom: 36px; }
+  .rec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .rec-card {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 18px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    transition: box-shadow .18s, transform .18s, background .18s;
+    cursor: pointer;
+  }
+  .rec-card:hover {
+    background: #ffffff;
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-2px);
+  }
+  .rec-top { display: flex; align-items: center; gap: 10px; }
+  .rec-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .rec-reason {
+    margin: 0;
+    font-size: 14px; font-weight: 400; line-height: 1.50;
+    color: var(--text-secondary);
+  }
+  .rec-open {
+    margin-top: auto;
+    align-self: flex-end;
+    font-size: 14px; font-weight: 600;
+    color: var(--accent);
+    transition: color .15s;
+  }
+  .rec-card:hover .rec-open { color: var(--accent-warm); }
+
+  /* 应用图标方块（暖色风：低透明度强调色底 + 细描边） */
+  .app-ic {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; flex: none;
+    border-radius: var(--r-card);
+    font-size: 20px; line-height: 1;
+  }
+
+  /* ---------- ⑤ 最近使用 ---------- */
+  .recent { margin-bottom: 36px; }
+  .recent-strip { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pill {
+    display: flex; align-items: center; gap: 8px;
+    height: 38px; padding: 0 14px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-pill);
+    font-size: 14px; font-weight: 500; color: var(--text-primary);
+    transition: background .15s, border-color .15s, transform .15s;
+    cursor: pointer;
+  }
+  .pill:hover { background: #ffffff; border-color: rgba(0, 0, 0, .2); transform: translateY(-1px); }
+  .pill .count { font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+
+  /* ---------- ⑥ 应用分组网格 ---------- */
+  .group { margin-bottom: 36px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: var(--line);
+  }
+  .group-head h3 {
+    margin: 0;
+    font-size: 22px; font-weight: 700; line-height: 1.27;
+    letter-spacing: -.25px;
+    color: var(--text-primary);
+  }
+  .group-meta { font-size: 14px; font-weight: 500; color: var(--text-weak); }
+  .app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .app-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    cursor: pointer;
+    transition: box-shadow .18s, transform .18s, background .18s;
+  }
+  .app-card:hover {
+    background: #ffffff;
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-2px);
+  }
+  .app-meta { min-width: 0; }
+  .app-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .app-sub { margin-top: 3px; font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+
+  /* 空态 */
+  .empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 64px 24px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    text-align: center;
+  }
+  .empty .ico { font-size: 34px; }
+  .empty .t1 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .empty .t2 { font-size: 14px; font-weight: 500; color: var(--text-weak); }
+  .strip-empty { font-size: 14px; font-weight: 500; color: var(--text-weak); padding: 8px 2px; }
+
+  /* ---------- ⑧ 底部说明行 ---------- */
+  .foot {
+    margin-top: 56px; padding-top: 20px;
+    border-top: var(--line);
+    font-size: 14px; font-weight: 500; color: var(--text-weak);
+    text-align: center;
+  }
+
+  /* ---------- ⑦ 全局 AI 助手（AI 融入点 3） ---------- */
+  .fab {
+    position: fixed; right: 28px; bottom: 28px; z-index: 60;
+    display: flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px;
+    border: none; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, #dd5b00, #C8161D);
+    color: #ffffff;
+    box-shadow: var(--shadow-lift);
+    transition: transform .18s, box-shadow .18s;
+  }
+  .fab:hover { transform: translateY(-2px) scale(1.03); }
+  .fab svg { width: 24px; height: 24px; }
+
+  .assistant {
+    position: fixed; right: 28px; bottom: 96px; z-index: 60;
+    width: 320px; height: 420px;
+    display: flex; flex-direction: column;
+    background: #ffffff;
+    border: var(--line);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    transform-origin: bottom right;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .assistant:not(.open) {
+    opacity: 0; transform: translateY(12px) scale(.96);
+    pointer-events: none;
+  }
+  .as-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px;
+    padding: 16px;
+    background: var(--surface);
+    border-bottom: var(--line);
+  }
+  .as-title { font-size: 16px; font-weight: 700; letter-spacing: -.2px; color: var(--text-primary); }
+  .as-sub { margin-top: 3px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--text-secondary); }
+  .as-close {
+    flex: none; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; border-radius: 6px;
+    color: var(--text-secondary); font-size: 14px;
+    transition: background .15s, color .15s;
+  }
+  .as-close:hover { background: rgba(0, 0, 0, .06); color: var(--text-primary); }
+  .as-body {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 16px;
+  }
+  .msg {
+    max-width: 82%;
+    padding: 10px 13px;
+    font-size: 14px; line-height: 1.5;
+    border-radius: var(--r-card);
+  }
+  .msg.ai { align-self: flex-start; background: var(--surface); border: var(--line); color: var(--text-primary); }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--dark-surface); color: #f6f5f4;
+  }
+  .as-quick {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 0 16px 12px;
+  }
+  .chip {
+    padding: 6px 11px;
+    background: #ffffff;
+    border: var(--line);
+    border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: var(--text-secondary);
+    transition: background .15s, border-color .15s, color .15s;
+    cursor: pointer;
+  }
+  .chip:hover { background: var(--surface); border-color: rgba(0, 0, 0, .2); color: var(--accent); }
+  .as-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    border-top: var(--line);
+  }
+  .as-input input {
+    flex: 1; height: 36px; padding: 0 12px;
+    background: var(--surface);
+    border: var(--line);
+    border-radius: var(--r-card);
+    outline: none;
+    font-size: 13px; color: var(--text-primary);
+  }
+  .as-input input::placeholder { color: var(--text-weak); }
+  .as-send {
+    flex: none; height: 36px; padding: 0 14px;
+    background: var(--accent); color: #ffffff;
+    border: none; border-radius: var(--r-card);
+    font-size: 13px; font-weight: 600;
+    transition: background .15s;
+  }
+  .as-send:hover { background: var(--accent-warm); }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 32px; z-index: 80;
+    transform: translate(-50%, 20px);
+    padding: 11px 18px;
+    background: var(--dark-surface);
+    color: #f6f5f4;
+    border-radius: var(--r-card);
+    font-size: 14px; font-weight: 500;
+    box-shadow: var(--shadow-lift);
+    opacity: 0;
+    transition: opacity .22s ease, transform .22s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 860px) {
+    .rec-grid, .app-grid { grid-template-columns: repeat(2, 1fr); }
+    .title-area { flex-direction: column; }
+    .title-area h1 { font-size: 38px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ① 顶栏 -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-name">麓邦</span>
+    <span class="brand-sep"></span>
+    <span class="brand-sub">业务中台</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="tb-search" type="button" onclick="focusSearch()">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      搜索
+    </button>
+    <button class="tb-bell" type="button" aria-label="通知">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="dot"></span>
+    </button>
+    <div class="avatar">张</div>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ② 页面标题区 -->
+  <section class="title-area">
+    <div>
+      <h1>应用中心</h1>
+      <p class="subtitle">8 个应用 · 由管理员统一上架，一次登录免登直达</p>
+    </div>
+    <button class="btn-ghost" type="button" onclick="toast('已进入「管理我的收藏」（演示）')">管理我的收藏</button>
+  </section>
+
+  <!-- ③ 智能搜索框 -->
+  <section class="smart-search">
+    <div class="search-box">
+      <span class="ai-ic">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>
+      </span>
+      <input id="appSearch" type="text" autocomplete="off"
+             placeholder="试试对我说「打开招聘系统」「上周提交的报销」">
+      <span class="kbd">⌘K</span>
+    </div>
+    <p class="search-hint">支持自然语言搜索，试试问：我的待办 / 打开知识库</p>
+  </section>
+
+  <!-- ④ AI 为你推荐 -->
+  <section class="recommend">
+    <div class="sec-head">
+      <h2>AI 为你推荐</h2>
+      <span class="badge-ai">AI</span>
+    </div>
+    <div class="rec-grid" id="recGrid"></div>
+  </section>
+
+  <!-- ⑤ 最近使用 -->
+  <section class="recent">
+    <div class="sec-head">
+      <h2>最近使用</h2>
+      <span class="sec-note">按使用频次自动排序</span>
+    </div>
+    <div class="recent-strip" id="recentStrip"></div>
+  </section>
+
+  <!-- ⑥ 应用分组网格 -->
+  <section id="groups"></section>
+
+  <!-- ⑧ 底部说明行 -->
+  <footer class="foot">演示数据 · 应用由管理员在「门户运营 → 应用管理」上架 · 无权限应用不展示</footer>
+</main>
+
+<!-- ⑦ 全局 AI 助手 -->
+<button class="fab" id="fab" type="button" aria-label="AI 助手" aria-expanded="true" onclick="toggleAssistant()">
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>
+</button>
+
+<div class="assistant open" id="assistant">
+  <div class="as-head">
+    <div>
+      <div class="as-title">AI 助手</div>
+      <div class="as-sub">可以帮你找应用、查待办、发起审批</div>
+    </div>
+    <button class="as-close" type="button" aria-label="关闭" onclick="toggleAssistant()">✕</button>
+  </div>
+  <div class="as-body">
+    <div class="msg ai">你好张三，需要我帮你做什么？</div>
+    <div class="msg user">帮我打开上周的报销</div>
+  </div>
+  <div class="as-quick">
+    <span class="chip">我的待办</span>
+    <span class="chip">打开知识库</span>
+    <span class="chip">发起一个审批</span>
+  </div>
+  <div class="as-input">
+    <input type="text" placeholder="输入消息，或说「打开CRM」…">
+    <button class="as-send" type="button" onclick="toast('已发送给 AI 助手（演示）')">发送</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ============ 数据（严格按 _SPEC.md） ============ */
+  var RECOMMEND = [
+    { icon: '📊', name: 'CRM 客户管理', color: '#1677FF', reason: '你每周一上午都会打开它，已连续 12 周' },
+    { icon: '🧾', name: '费用报销',     color: '#8B5CF6', reason: '检测到你有 3 笔待填报销草稿' },
+    { icon: '🧑‍💼', name: '招聘系统',     color: '#07C160', reason: '今天有 2 位候选人进入你的待面试列表' }
+  ];
+
+  var RECENT = [
+    { icon: '📊', name: 'CRM 客户管理', color: '#1677FF', freq: 32 },
+    { icon: '📋', name: 'OA 办公',      color: '#F59E0B', freq: 28 },
+    { icon: '🧑‍💼', name: '招聘系统',    color: '#07C160', freq: 12 },
+    { icon: '🧾', name: '费用报销',     color: '#8B5CF6', freq: 9 },
+    { icon: '🎯', name: '目标管理',     color: '#EC4899', freq: 7 }
+  ];
+
+  var GROUPS = [
+    {
+      name: '业务系统',
+      apps: [
+        { icon: '📊', name: 'CRM 客户管理', color: '#1677FF', freq: 32 },
+        { icon: '📋', name: 'OA 办公',      color: '#F59E0B', freq: 28 },
+        { icon: '🧑‍💼', name: '招聘系统',    color: '#07C160', freq: 12 },
+        { icon: '🧾', name: '费用报销',     color: '#8B5CF6', freq: 9 },
+        { icon: '🎯', name: '目标管理',     color: '#EC4899', freq: 7 },
+        { icon: '📁', name: '项目管理',     color: '#14B8A6', freq: 5 }
+      ]
+    },
+    {
+      name: '协作平台',
+      apps: [
+        { icon: '📚', name: '知识库',   color: '#F97316', freq: 4 },
+        { icon: '📈', name: '数据报表', color: '#0EA5E9', freq: 3 }
+      ]
+    }
+  ];
+
+  /* ============ 工具函数 ============ */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  function openApp(name) {
+    toast('新标签页打开 ' + name + '（SSO 免登，决议 #5）');
+  }
+
+  function focusSearch() {
+    document.getElementById('appSearch').focus();
+  }
+
+  function toggleAssistant() {
+    var panel = document.getElementById('assistant');
+    var btn = document.getElementById('fab');
+    var open = panel.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  /* 暖色风图标底：低透明度强调色 + 细描边 */
+  function iconStyle(color) {
+    return 'background:' + color + '1f;border:1px solid ' + color + '33;';
+  }
+
+  /* ============ 渲染 ============ */
+  function renderRecommend() {
+    var html = RECOMMEND.map(function (a) {
+      return '' +
+        '<div class="rec-card" onclick="openApp(\'' + escapeHtml(a.name) + '\')">' +
+          '<div class="rec-top">' +
+            '<span class="app-ic" style="' + iconStyle(a.color) + '">' + a.icon + '</span>' +
+            '<span class="rec-name">' + escapeHtml(a.name) + '</span>' +
+          '</div>' +
+          '<p class="rec-reason">' + escapeHtml(a.reason) + '</p>' +
+          '<span class="rec-open">立即打开 →</span>' +
+        '</div>';
+    }).join('');
+    document.getElementById('recGrid').innerHTML = html;
+  }
+
+  function renderRecent(q) {
+    var list = RECENT.filter(function (a) {
+      return !q || a.name.toLowerCase().indexOf(q) !== -1;
+    });
+    var el = document.getElementById('recentStrip');
+    if (!list.length) { el.innerHTML = '<span class="strip-empty">无可匹配的最近使用项</span>'; return; }
+    el.innerHTML = list.map(function (a) {
+      return '' +
+        '<span class="pill" onclick="openApp(\'' + escapeHtml(a.name) + '\')">' +
+          '<span>' + a.icon + '</span>' +
+          escapeHtml(a.name) +
+          '<span class="count">' + a.freq + ' 次</span>' +
+        '</span>';
+    }).join('');
+  }
+
+  function appCardHtml(a) {
+    return '' +
+      '<div class="app-card" onclick="openApp(\'' + escapeHtml(a.name) + '\')">' +
+        '<span class="app-ic" style="' + iconStyle(a.color) + '">' + a.icon + '</span>' +
+        '<div class="app-meta">' +
+          '<div class="app-name">' + escapeHtml(a.name) + '</div>' +
+          '<div class="app-sub">SSO 免登直达</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderGroups(q) {
+    var total = 0;
+    var html = GROUPS.map(function (g) {
+      var apps = g.apps.filter(function (a) {
+        return !q || a.name.toLowerCase().indexOf(q) !== -1;
+      });
+      total += apps.length;
+      if (!apps.length) { return ''; }
+      return '' +
+        '<div class="group">' +
+          '<div class="group-head">' +
+            '<h3>' + escapeHtml(g.name) + '</h3>' +
+            '<span class="group-meta">' + apps.length + ' 个应用 · 无权限应用不展示</span>' +
+          '</div>' +
+          '<div class="app-grid">' + apps.map(appCardHtml).join('') + '</div>' +
+        '</div>';
+    }).join('');
+
+    var el = document.getElementById('groups');
+    if (total === 0) {
+      var kw = document.getElementById('appSearch').value.trim();
+      el.innerHTML = '' +
+        '<div class="empty">' +
+          '<div class="ico">🔍</div>' +
+          '<div class="t1">未找到匹配「' + escapeHtml(kw) + '」的应用</div>' +
+          '<div class="t2">应用由管理员在「门户运营 → 应用管理」上架</div>' +
+        '</div>';
+      return;
+    }
+    el.innerHTML = html;
+  }
+
+  function renderAll() {
+    var q = document.getElementById('appSearch').value.trim().toLowerCase();
+    renderRecent(q);
+    renderGroups(q);
+  }
+
+  /* ============ 初始化 ============ */
+  renderRecommend();
+  renderAll();
+
+  document.getElementById('appSearch').addEventListener('input', renderAll);
+
+  /* 快捷指令点击反馈 */
+  Array.prototype.forEach.call(document.querySelectorAll('.as-quick .chip'), function (chip) {
+    chip.addEventListener('click', function () {
+      toast('AI 助手：正在为你处理「' + chip.textContent + '」（演示）');
+    });
+  });
+</script>
+</body>
+</html>

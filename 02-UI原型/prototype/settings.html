@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>个人设置 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  .settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; max-width: 960px; }
+  .side-menu { background: #fff; border-radius: var(--bmp-radius-md); box-shadow: var(--bmp-shadow-1); padding: 8px; }
+  .side-menu a { display: block; padding: 10px 14px; border-radius: var(--bmp-radius-sm); color: var(--bmp-text-body); font-size: 14px; }
+  .side-menu a:hover { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); }
+  .side-menu a.active { background: var(--bmp-color-primary-light); color: var(--bmp-color-primary); font-weight: 600; }
+  .pane { display: none; } .pane.active { display: block; }
+  .matrix { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .matrix th, .matrix td { padding: 12px 14px; border-bottom: 1px solid var(--bmp-border); text-align: center; }
+  .matrix th { background: #F8FAFC; font-weight: 600; color: var(--bmp-text-title); font-size: 13px; }
+  .matrix td:first-child, .matrix th:first-child { text-align: left; }
+  .switch { position: relative; width: 40px; height: 22px; background: var(--bmp-border-strong); border-radius: 11px; cursor: pointer; transition: background .18s; display: inline-block; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: left .18s; box-shadow: var(--bmp-shadow-1); }
+  .switch.on { background: var(--bmp-color-primary); }
+  .switch.on::after { left: 20px; }
+  .auth-app { display: flex; justify-content: space-between; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--bmp-border); }
+
+  /* ---------- 界面风格（A：轻定制） ---------- */
+  .style-preview {
+    border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-md);
+    background: var(--bmp-bg-page); padding: var(--density-gap, 12px); margin-bottom: 20px;
+  }
+  .style-preview .sp-head { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-bottom: 10px; }
+  .style-preview .sp-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--density-gap, 12px); margin-bottom: var(--density-gap, 12px); }
+  .sp-card {
+    background: var(--bmp-bg-card); border: 1px solid var(--bmp-border);
+    border-radius: var(--bmp-radius-md); padding: var(--density-pad-y, 10px) 14px;
+    box-shadow: var(--bmp-shadow-1);
+  }
+  .sp-card .sp-title { font: var(--bmp-font-h3); color: var(--bmp-text-title); margin-bottom: 6px; }
+  .sp-card .sp-desc { font-size: 13px; line-height: var(--density-line, 22px); color: var(--bmp-text-secondary); }
+  .sp-card .sp-line { height: 1px; background: var(--bmp-border); margin: var(--density-pad-y, 10px) 0; }
+
+  .style-section { margin-bottom: 20px; }
+  .style-label { font-size: 14px; font-weight: 600; color: var(--bmp-text-title); margin-bottom: 10px; }
+  .opt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .opt-grid.opt-grid-3 { grid-template-columns: repeat(3, 1fr); max-width: 480px; }
+  .opt-card {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer;
+    border: 2px solid var(--bmp-border); border-radius: var(--bmp-radius-md); background: #fff;
+    transition: border-color .15s, background .15s;
+  }
+  .opt-card:hover { border-color: var(--bmp-color-primary); }
+  .opt-card.sel { border-color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+  .opt-card .dot-color { width: 20px; height: 20px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.12); }
+  .opt-card .nm { font-size: 13px; color: var(--bmp-text-title); white-space: nowrap; }
+  .opt-card.sel .nm { font-weight: 600; }
+  .opt-card .swatch { flex: none; width: 34px; height: 22px; border: 1px solid var(--bmp-border-strong); border-radius: var(--bmp-radius-md); background: var(--bmp-color-info-light); position: relative; }
+  .opt-card .swatch::before { content: ""; position: absolute; left: 5px; right: 5px; top: 6px; height: 2px; background: var(--bmp-text-placeholder); box-shadow: 0 5px 0 var(--bmp-text-placeholder), 0 10px 0 var(--bmp-text-placeholder); }
+  .opt-card .sub { display: block; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); }
+  .style-note { margin-top: 8px; font-size: 12px; color: var(--bmp-text-secondary); }
+  .style-note.warn { color: #92400E; background: var(--bmp-color-warning-light); border: 1px solid #FDE68A; border-radius: var(--bmp-radius-sm); padding: 6px 10px; display: inline-block; }
+  .pick-list label { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--bmp-border); border-radius: var(--bmp-radius-sm); margin-bottom: 8px; cursor: pointer; }
+  .pick-list label:hover { border-color: var(--bmp-color-primary); background: var(--bmp-color-primary-light); }
+  .pick-list input { flex: none; }
+</style>
+<!-- 主题覆写容器：界面风格切换时动态注入 :root{--bmp-color-primary:...} 等变量 -->
+<style id="themeOverride"></style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div id="topbar"></div>
+<main class="portal-main">
+  <h1 style="font:var(--bmp-font-h2);color:var(--bmp-text-title);margin-bottom:16px">个人设置</h1>
+  <div class="settings-layout">
+    <div class="side-menu">
+      <a class="active" data-p="profile" onclick="sw(this)">基本资料</a>
+      <a data-p="home" onclick="sw(this)">首页个性化</a>
+      <a data-p="portal" onclick="sw(this);renderPortalPicks()">订阅与意图</a>
+      <a data-p="style" onclick="sw(this)">界面风格</a>
+      <a data-p="notify" onclick="sw(this)">通知偏好</a>
+      <a data-p="authed" onclick="sw(this)">应用授权</a>
+      <a data-p="security" onclick="sw(this)">安全设置</a>
+    </div>
+    <div>
+      <!-- 基本资料：来自主数据，只读（F1 单一权威源） -->
+      <div class="pane active card" id="p-profile">
+        <div class="readonly-banner">🔒 基本资料由组织人员主数据（权威源：HR 系统）单向同步，如需修改请联系 HR（内线 8010）或在源系统变更</div>
+        <dl class="desc-grid" style="grid-template-columns:110px 1fr 110px 1fr;max-width:640px">
+          <dt>姓名</dt><dd>张三</dd><dt>工号</dt><dd>EMP-2020-0031</dd>
+          <dt>部门</dt><dd>数字化中心 / 平台研发组</dd><dt>岗位</dt><dd>产品经理</dd>
+          <dt>直属上级</dt><dd>刘总监</dd><dt>任职状态</dt><dd><span class="tag tag-success">在职</span></dd>
+          <dt>企业邮箱</dt><dd>zhangsan@lubon.com</dd><dt>手机号</dt><dd>138****2231（脱敏）</dd>
+        </dl>
+        <div class="mt-4 fs-13 text-secondary">中台账号：zhangsan · 角色：普通员工、系统管理员 · 数据更新时间：09-22 02:00（每日全量同步）</div>
+      </div>
+
+      <!-- 首页个性化（决议 #6：用户可微调显隐/排序/栅格） -->
+      <div class="pane card" id="p-home">
+        <div class="card-head"><h3>首页个性化</h3></div>
+        <p class="text-secondary fs-13 mb-4">角色默认模板由管理员统一配置（当前模板：普通员工-标准版）；你可在其基础上微调卡片<b>显隐、排序与宽度</b>，卡片集合不可自行增删。</p>
+        <div id="miniCards"></div>
+        <div class="mt-4 flex gap-2">
+          <button class="btn btn-primary" onclick="location.href='home-v2.html'">进入首页编辑模式（所见即所得）→</button>
+          <button class="btn" onclick="if(confirm('确认恢复角色默认模板？你的个人调整将被清除。')){localStorage.removeItem('bmp_user_override');msg('success','已恢复默认模板');renderMini()}">恢复默认模板</button>
+        </div>
+      </div>
+
+      <!-- 我的订阅 / 我要做什么：在管理员目录与角色可选范围内个人覆盖 -->
+      <div class="pane card" id="p-portal">
+        <div class="card-head"><h3>我的订阅 · 我要做什么</h3></div>
+        <p class="text-secondary fs-13 mb-4" style="line-height:1.85">
+          应用来自<b>应用中心</b>，快捷入口来自管理员维护的<b>意图项</b>；你只能勾选<b>当前角色</b>被允许的范围（管理员在「门户运营 → 角色订阅与意图」配置默认与可选）。
+          保存后写入 <span class="mono">bmp_my_subscriptions</span> / <span class="mono">bmp_user_intents</span>，<b>优先于角色默认</b>。
+        </p>
+        <div class="style-section">
+          <div class="style-label">我的订阅</div>
+          <div id="portalSubsPick" class="pick-list"></div>
+        </div>
+        <div class="style-section">
+          <div class="style-label">我要做什么（快捷入口）</div>
+          <div id="portalIntentsPick" class="pick-list"></div>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <button class="btn btn-primary" onclick="savePortalPicks()">保存</button>
+          <button class="btn" onclick="resetPortalPicks()">恢复角色默认</button>
+          <span class="fs-12 text-secondary" id="portalPickStatus"></span>
+        </div>
+      </div>
+
+      <!-- 界面风格：视觉 Token 轻定制（主题色/密度/圆角，不做暗色） -->
+      <div class="pane card" id="p-style">
+        <div class="card-head"><h3>界面风格</h3><span class="fs-12 text-secondary">轻定制 · 仅改变视觉 Token，不改布局与功能</span></div>
+        <p class="text-secondary fs-13" style="line-height:1.8;margin-bottom:16px">
+          本页与「<b>首页个性化</b>」互补：<b>首页个性化</b>管<b>布局</b>（卡片显隐 / 顺序 / 宽窄），本页管<b>视觉风格</b>（主题色 / 内容密度 / 圆角）。二者可自由叠加。
+        </p>
+
+        <!-- 实时预览区：切换后立即在此看到效果 -->
+        <div class="style-preview">
+          <div class="sp-head">实时预览 · 主题色 / 密度 / 圆角会即刻反映到下方示例元素</div>
+          <div class="sp-row">
+            <button class="btn btn-primary">主按钮</button>
+            <button class="btn">次按钮</button>
+            <span class="tag tag-primary">主题标签</span>
+            <span class="tag tag-success">成功</span>
+            <span class="tag tag-warning">警告</span>
+            <span class="tag tag-danger">错误</span>
+          </div>
+          <div class="sp-card">
+            <div class="sp-title">示例卡片标题</div>
+            <div class="sp-desc">卡片内容随「内容密度」调整行高与内边距，随「圆角」调整边角弧度。</div>
+            <div class="sp-line"></div>
+            <div class="sp-desc">示例列表项 · 间距随密度变化</div>
+          </div>
+        </div>
+
+        <!-- A1. 主题色 -->
+        <div class="style-section">
+          <div class="style-label">主题色</div>
+          <div class="opt-grid" id="themeGrid"></div>
+          <div class="style-note warn">⚠ 语义色（成功 / 警告 / 错误）<b>不随主题变化</b>，始终固定，保证「红色依然警示错误」的语义稳定性。</div>
+        </div>
+
+        <!-- A2. 内容密度 -->
+        <div class="style-section">
+          <div class="style-label">内容密度</div>
+          <div class="opt-grid opt-grid-3" id="densityGrid"></div>
+          <div class="style-note">影响行高、卡片内边距与列表间距（宽松更透气 / 紧凑更省空间）。</div>
+        </div>
+
+        <!-- A3. 圆角 -->
+        <div class="style-section">
+          <div class="style-label">圆角</div>
+          <div class="opt-grid opt-grid-3" id="radiusGrid"></div>
+          <div class="style-note">影响卡片、按钮、输入框与标签的边角弧度。</div>
+        </div>
+
+        <div class="mt-4 flex gap-2 items-center">
+          <button class="btn btn-primary" onclick="msg('success','界面风格已保存，将随账号在多设备生效')">保存风格</button>
+          <button class="btn" onclick="resetStyle()">恢复默认</button>
+          <span class="fs-12 text-secondary" id="styleStatus"></span>
+        </div>
+        <div class="style-note" style="margin-top:14px">
+          🌙 暗色模式：敬请期待（已纳入 V1.5 评估，当前版本仅提供浅色主题）。
+        </div>
+      </div>
+
+      <!-- 通知偏好：渠道开关矩阵 -->
+      <div class="pane card" id="p-notify">
+        <div class="card-head"><h3>通知偏好</h3><span class="fs-12 text-secondary">关闭后该类消息不再经对应渠道推送（站内信始终保留）</span></div>
+        <table class="matrix">
+          <tr><th>消息类型</th><th>站内信</th><th>钉钉工作通知</th><th>企业微信</th><th>邮件</th></tr>
+          <tr><td>待办提醒（临期/超时）</td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td></tr>
+          <tr><td>审批结果</td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td><td><span class="switch on" onclick="tg(this)"></span></td></tr>
+          <tr><td>公告通知</td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td></tr>
+          <tr><td>系统通知（维护等）</td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch on" onclick="tg(this)"></span></td><td><span class="switch" onclick="tg(this)"></span></td></tr>
+        </table>
+        <div class="mt-4"><button class="btn btn-primary" onclick="msg('success','通知偏好已保存')">保存偏好</button></div>
+      </div>
+
+      <!-- 应用授权（OIDC 已授权应用，可撤销） -->
+      <div class="pane card" id="p-authed">
+        <div class="card-head"><h3>应用授权管理</h3></div>
+        <div class="auth-app"><div><b>CRM 客户管理</b><div class="fs-12 text-secondary mt-2">已授权：基本信息、联系方式、待办推送 · 授权于 2026-09-20</div></div><button class="btn btn-sm" onclick="revoke('CRM 客户管理')">撤销授权</button></div>
+        <div class="auth-app"><div><b>招聘系统</b><div class="fs-12 text-secondary mt-2">已授权：基本信息 · 授权于 2026-09-21</div></div><button class="btn btn-sm" onclick="revoke('招聘系统')">撤销授权</button></div>
+        <div class="auth-app" style="border-bottom:none"><div><b>OA 办公系统</b><div class="fs-12 text-secondary mt-2">通过 LegacyAuthFilter 票据接入（存量适配，无需显式授权）</div></div><span class="tag tag-info">存量适配</span></div>
+      </div>
+
+      <!-- 安全设置 -->
+      <div class="pane card" id="p-security">
+        <div class="card-head"><h3>安全设置</h3></div>
+        <div class="auth-app"><div><b>登录密码</b><div class="fs-12 text-secondary mt-2">上次修改：2026-08-01（首登强制修改）· 密码策略：8-32 位含 3 类字符</div></div><button class="btn btn-sm" onclick="location.href='login-forgot.html'">修改密码</button></div>
+        <div class="auth-app"><div><b>登录记录</b><div class="fs-12 text-secondary mt-2">最近登录：09-22 08:55 · 钉钉扫码 · 10.20.3.41</div></div><button class="btn btn-sm" onclick="msg('info','跳转审计中心-登录日志（预填本人筛选）')">查看全部</button></div>
+        <div class="auth-app" style="border-bottom:none"><div><b>活跃会话</b><div class="fs-12 text-secondary mt-2">当前 2 个设备在线（Chrome / 钉钉 iPhone）</div></div><button class="btn btn-sm text-danger" onclick="if(confirm('确认下线除本机外的全部会话？'))msg('success','其他会话已下线（写审计日志）')">下线其他会话</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="assets/mock.js"></script>
+<script>
+document.getElementById("topbar").innerHTML = renderTopbar("");
+function sw(el) {
+  document.querySelectorAll(".side-menu a").forEach(a => a.classList.remove("active"));
+  el.classList.add("active");
+  document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
+  document.getElementById("p-" + el.dataset.p).classList.add("active");
+}
+function tg(el) { el.classList.toggle("on"); }
+function revoke(name) {
+  if (confirm(`确认撤销「${name}」的授权？撤销后该应用将无法获取你的信息，需重新授权。`)) msg("success", `已撤销「${name}」授权`);
+}
+/* 首页个性化：当前覆盖状态 mini 视图 */
+function renderMini() {
+  let layout = JSON.parse(JSON.stringify(MOCK.layoutTemplate));
+  try { const s = localStorage.getItem("bmp_user_override"); if (s) { const ov = JSON.parse(s); ov.cards.forEach(o => { const c = layout.cards.find(c => c.cardId === o.cardId); if (c) Object.assign(c, o); }); } } catch (e) {}
+  document.getElementById("miniCards").innerHTML = [...layout.cards].sort((a, b) => a.order - b.order).map(c => `
+    <div class="flex items-center justify-between" style="padding:10px 12px;border:1px solid var(--bmp-border);border-radius:var(--bmp-radius-sm);margin-bottom:8px;${c.visible ? "" : "opacity:.45"}">
+      <span>${c.visible ? "👁" : "🚫"} ${c.name}</span>
+      <span class="fs-12 text-secondary">栅格 ${c.grid} · 顺序 ${c.order} ${JSON.stringify(c) !== JSON.stringify(MOCK.layoutTemplate.cards.find(x => x.cardId === c.cardId)) ? '<span class="tag tag-primary" style="margin-left:6px">已个性化</span>' : ""}</span>
+    </div>`).join("");
+}
+renderMini();
+
+/* ============================================================
+   我的订阅 / 我要做什么（角色默认 + 个人覆盖）
+   ============================================================ */
+function renderPortalPicks() {
+  if (!window.MOCK || !MOCK.getRoleAllowedAppNames) return;
+  const subs = MOCK.getEffectiveSubscriptions().names;
+  const intentKeys = MOCK.getEffectiveIntentKeys().keys;
+  const catalog = MOCK.getPortalCatalogApps ? MOCK.getPortalCatalogApps() : MOCK.apps;
+  const allowedApps = MOCK.getRoleAllowedAppNames()
+    .map(n => catalog.find(a => a.name === n)).filter(Boolean);
+  const allowedIntents = MOCK.getPortalCatalogIntents()
+    .filter(it => MOCK.getRoleAllowedIntentKeys().indexOf(it.key) >= 0);
+  document.getElementById("portalSubsPick").innerHTML = allowedApps.length
+    ? allowedApps.map(a => {
+        const grp = a.kind === "workflow" ? (MOCK.bizDomainLabel(a.bizDomain) + " · 流程") : a.group;
+        return `<label><input type="checkbox" class="pp-sub" value="${a.name.replace(/"/g, "&quot;")}" ${subs.indexOf(a.name) >= 0 ? "checked" : ""}><span>${a.icon} ${a.name}</span><span class="fs-12 text-secondary">${grp}</span></label>`;
+      }).join("")
+    : `<div class="readonly-banner">当前角色未配置可订阅应用</div>`;
+  document.getElementById("portalIntentsPick").innerHTML = allowedIntents.length
+    ? allowedIntents.map(it => {
+        const linkHint = (it.jumpUrl && String(it.jumpUrl).trim())
+          ? ` · 跳转：${String(it.jumpUrl).trim()}`
+          : "";
+        return `<label><input type="checkbox" class="pp-intent" value="${it.key}" ${intentKeys.indexOf(it.key) >= 0 ? "checked" : ""}><span>${it.icon} ${it.name}</span><span class="fs-12 text-secondary">${it.sub || it.key}${linkHint}</span></label>`;
+      }).join("")
+    : `<div class="readonly-banner">当前角色未配置快捷入口</div>`;
+  const st = document.getElementById("portalPickStatus");
+  if (st) {
+    st.textContent = "当前角色：" + MOCK.resolvePortalRoleId() +
+      (MOCK.hasPersonalSubscriptions() || MOCK.hasPersonalIntents() ? " · 已有个性化" : " · 沿用角色默认");
+  }
+}
+function savePortalPicks() {
+  const subNames = Array.from(document.querySelectorAll(".pp-sub:checked")).map(el => el.value);
+  const intentKeys = Array.from(document.querySelectorAll(".pp-intent:checked")).map(el => el.value);
+  MOCK.saveUserSubscriptions(subNames);
+  MOCK.saveUserIntentKeys(intentKeys);
+  msg("success", "已保存订阅与意图（首页刷新后生效，移动端同源 key 同步）");
+  renderPortalPicks();
+}
+function resetPortalPicks() {
+  if (!confirm("确认清除个人订阅与意图配置？将恢复为管理员为当前角色设置的默认项。")) return;
+  MOCK.clearUserSubscriptions();
+  MOCK.clearUserIntents();
+  msg("success", "已恢复角色默认");
+  renderPortalPicks();
+}
+
+/* ============================================================
+   界面风格（A：轻定制）—— 主题色 / 内容密度 / 圆角
+   实现：全部落在 --bmp-* CSS 变量层；持久化到 localStorage 单键 JSON。
+   硬边界：语义色（success/warning/danger）恒不覆写；不做暗色。
+   ============================================================ */
+var STYLE_KEY = "bmp_ui_style";
+
+/* 预设清单：单一权威源 = assets/ui-style.js（window.BMP_UI_STYLE）
+   本页只补充「展示元数据（中文名 / 描述）」，色值与档位值一律取自 BMP_UI_STYLE，
+   避免 settings.html 与全站应用器各持一套定义而产生漂移。
+   说明：预设色属「用户可选风格」，可超出设计基准色表；但语义色（success/warning/danger）
+        与紧急语义红恒不随主题变（A1-F06 硬边界 H2）。 */
+var _S = window.BMP_UI_STYLE || { THEMES: {}, DENSITY: {}, RADIUS: {} };
+var THEME_META = { lubon: "麓邦红", indigo: "靛蓝", graphite: "石墨灰", amber: "暖橙", teal: "青竹绿" };
+var DENSITY_META = { loose: ["宽松", "行高 24 / 间距 16"], normal: ["标准", "行高 22 / 间距 12"], compact: ["紧凑", "行高 20 / 间距 8"] };
+var RADIUS_META = { sharp: ["直角", "4px"], standard: ["标准", "8px"], round: ["圆润", "12px"] };
+
+var THEME_PRESETS = Object.keys(_S.THEMES).map(function (id) {
+  var t = _S.THEMES[id];
+  return { id: id, name: THEME_META[id] || id, primary: t.primary, light: t.light, dark: t.dark };
+});
+var DENSITY_PRESETS = Object.keys(_S.DENSITY).map(function (id) {
+  var d = _S.DENSITY[id], m = DENSITY_META[id] || [id, ""];
+  return { id: id, name: m[0], desc: m[1], gap: d.gap, padY: d.padY, line: d.line };
+});
+var RADIUS_PRESETS = Object.keys(_S.RADIUS).map(function (id) {
+  var r = _S.RADIUS[id], m = RADIUS_META[id] || [id, ""];
+  return { id: id, name: m[0], desc: m[1], sm: r.sm, md: r.md, lg: r.lg };
+});
+
+var DEFAULT_STYLE = { theme: "lubon", density: "normal", radius: "standard" };
+var uiStyle = Object.assign({}, DEFAULT_STYLE);
+
+/* 读取 localStorage（异常兜底为默认值） */
+/* 读取 localStorage（异常兜底为默认值）—— 统一委托公共应用器 BMP_UI_STYLE */
+function loadStyle() {
+  var s = (window.BMP_UI_STYLE ? BMP_UI_STYLE.read() : null) || uiStyle;
+  uiStyle = Object.assign({}, DEFAULT_STYLE, s);
+}
+
+/* 应用风格：委托 BMP_UI_STYLE（同时覆写 --accent / --accent-warm 与 --bmp-color-primary 三档，
+   实现双轨同步；语义色 success/warning/danger 与紧急语义红恒不覆写） */
+function applyStyle() {
+  if (window.BMP_UI_STYLE) { BMP_UI_STYLE.apply(); }
+  renderStyleOptions();
+  updateStyleStatus();
+}
+
+/* 持久化 */
+function saveStyle() {
+  try { localStorage.setItem(STYLE_KEY, JSON.stringify(uiStyle)); } catch (e) { /* 忽略存储异常 */ }
+  // 持久化后再次应用（覆盖所有页面共用的注入样式）
+  if (window.BMP_UI_STYLE) { BMP_UI_STYLE.apply(); }
+}
+
+/* 设置某维度并即时生效 */
+function setStyle(dim, id) {
+  uiStyle[dim] = id;
+  applyStyle();
+  saveStyle();
+}
+
+/* 恢复默认 */
+function resetStyle() {
+  uiStyle = Object.assign({}, DEFAULT_STYLE);
+  applyStyle();
+  saveStyle();
+  msg("success", "已恢复默认风格（麓邦红 · 标准密度 · 标准圆角）");
+}
+
+/* 渲染三个维度的可选项（含选中态） */
+function renderStyleOptions() {
+  document.getElementById("themeGrid").innerHTML = THEME_PRESETS.map(function (t) {
+    return '<div class="opt-card ' + (uiStyle.theme === t.id ? "sel" : "") + '" onclick="setStyle(\'theme\',\'' + t.id + '\')">' +
+      '<span class="dot-color" style="background:' + t.primary + '"></span>' +
+      '<span class="nm">' + t.name + '</span>' +
+      '</div>';
+  }).join("");
+
+  document.getElementById("densityGrid").innerHTML = DENSITY_PRESETS.map(function (d) {
+    return '<div class="opt-card ' + (uiStyle.density === d.id ? "sel" : "") + '" onclick="setStyle(\'density\',\'' + d.id + '\')">' +
+      '<span class="swatch"></span>' +
+      '<span><span class="nm">' + d.name + '</span><span class="sub">' + d.desc + '</span></span>' +
+      '</div>';
+  }).join("");
+
+  document.getElementById("radiusGrid").innerHTML = RADIUS_PRESETS.map(function (r) {
+    return '<div class="opt-card ' + (uiStyle.radius === r.id ? "sel" : "") + '" onclick="setStyle(\'radius\',\'' + r.id + '\')">' +
+      '<span class="swatch" style="border-radius:' + r.md + '"></span>' +
+      '<span><span class="nm">' + r.name + '</span><span class="sub">' + r.desc + '</span></span>' +
+      '</div>';
+  }).join("");
+}
+
+/* 状态行：回显当前选择 */
+function updateStyleStatus() {
+  var t = THEME_PRESETS.find(function (x) { return x.id === uiStyle.theme; });
+  var d = DENSITY_PRESETS.find(function (x) { return x.id === uiStyle.density; });
+  var r = RADIUS_PRESETS.find(function (x) { return x.id === uiStyle.radius; });
+  var el = document.getElementById("styleStatus");
+  if (el && t && d && r) el.textContent = "当前：" + t.name + " · " + d.name + " · " + r.name;
+}
+
+/* 初始化：加载并应用（页面加载即生效） */
+loadStyle();
+applyStyle();
+</script>
+</body>
+</html>

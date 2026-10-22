@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>授权确认 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; background: var(--bmp-bg-page); min-height: 100vh; padding: 24px; }
+  .consent-card { width: 440px; max-width: 100%; background: var(--bmp-bg-card); border-radius: var(--bmp-radius-lg); box-shadow: var(--bmp-shadow-2); overflow: hidden; }
+  .consent-head { padding: 24px 28px 16px; text-align: center; border-bottom: 1px solid var(--bmp-border); }
+  .app-icon { width: 56px; height: 56px; border-radius: 14px; background: #F59E0B; color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .consent-head h2 { font: var(--bmp-font-h3); color: var(--bmp-text-title); }
+  .consent-head .sub { font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-top: 4px; }
+  .consent-body { padding: 20px 28px; }
+  .scope-item { display: flex; gap: 10px; padding: 9px 0; font-size: 14px; align-items: flex-start; }
+  .scope-item .ck { color: var(--bmp-color-success); font-weight: 700; }
+  .scope-item .d { color: var(--bmp-text-secondary); font-size: 12px; }
+  .consent-note { background: var(--bmp-color-info-light); border-radius: var(--bmp-radius-sm); padding: 10px 12px; font: var(--bmp-font-caption); color: var(--bmp-text-secondary); margin-top: 8px; line-height: 1.7; }
+  .consent-foot { display: flex; gap: 12px; padding: 16px 28px 24px; }
+  .consent-foot .btn { flex: 1; height: 40px; }
+  .authorized-tip { display: none; background: var(--bmp-color-success-light); color: var(--bmp-color-success); font-size: 13px; padding: 8px 12px; border-radius: var(--bmp-radius-sm); margin-bottom: 12px; }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div class="consent-card">
+  <div class="consent-head">
+    <div class="app-icon">📊</div>
+    <h2>CRM 客户管理 申请授权</h2>
+    <div class="sub">麓邦业务中台统一身份 · OIDC 授权码模式</div>
+  </div>
+  <div class="consent-body">
+    <div class="authorized-tip" id="authedTip">✔ 你此前已授权过该应用，本次为再次授权</div>
+    <div style="font-size:14px;color:var(--bmp-text-title);margin-bottom:6px">该应用将获得以下权限：</div>
+    <div class="scope-item"><span class="ck">✓</span><div>获取你的基本信息<div class="d">姓名、工号、所属部门</div></div></div>
+    <div class="scope-item"><span class="ck">✓</span><div>获取你的联系方式<div class="d">企业邮箱、办公电话</div></div></div>
+    <div class="scope-item"><span class="ck">✓</span><div>代表你推送待办<div class="d">在统一待办中心向你推送 CRM 审批任务</div></div></div>
+    <div class="consent-note">
+      授权后应用将以你的中台身份访问上述信息，不会获取你的登录密码。你可随时在「个人设置 → 应用授权」中撤销。（scope 说明面向普通员工，不出现技术术语 · T3-01 验收）
+    </div>
+  </div>
+  <div class="consent-foot">
+    <button class="btn" onclick="deny()">拒 绝</button>
+    <button class="btn btn-primary" onclick="agree()">同意授权</button>
+  </div>
+</div>
+<script src="assets/mock.js"></script>
+<script>
+  if (new URLSearchParams(location.search).get("re") === "1") document.getElementById("authedTip").style.display = "block";
+  function agree() { msg("success", "已授权，正在返回 CRM（携带 code）…"); setTimeout(() => location.href = "home-v2.html", 1000); }
+  function deny() { msg("info", "已拒绝授权，回跳 redirect_uri?error=access_denied"); setTimeout(() => location.href = "login.html", 1000); }
+</script>
+</body>
+</html>

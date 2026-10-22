@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统一登录 · 麓邦业务中台</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/common.css">
+<style>
+  /* ============================================================
+     统一登录 · Notion·Claude 暖色极简（改造版）
+     Token 与 style-samples/sample-notion.html 对齐：
+       暖白底 #f6f5f4 · 1px solid rgba(0,0,0,.1) 细边框 · 压缩字距
+       多层低透明度阴影 · 麓邦红 #C8161D 作强调色（克制使用）
+     功能约束：密码登录 / 失败计数 / 图片验证码 / 锁定 / 扫码（钉钉·企微）
+       第三方 OAuth / MFA 分支 / redirect 回跳 —— 全部保留
+     零依赖：内联样式 · 系统字体 · 无外链 · 图标用 emoji / 内联 SVG / CSS 绘制
+     ============================================================ */
+
+  :root {
+    /* —— 表面 —— */
+    --page-bg: #ffffff;         /* 页面底：纯白 */
+    --surface: #f6f5f4;         /* 区块 / 卡片底：暖白 */
+    --surface-hover: #efedea;
+    --dark-surface: #31302e;
+
+    /* —— 文字 —— */
+    --text-primary: rgba(0, 0, 0, .95);
+    --text-secondary: #615d59;  /* 暖灰 500 */
+    --text-weak: #767068;       /* 暖灰 300 */
+
+    /* —— 强调 —— */
+    --accent: #C8161D;          /* 麓邦红 */
+    --accent-warm: #dd5b00;     /* 暖橙，hover 辅助 */
+
+    /* —— 边框 & 阴影（累计 ≤ .05） —— */
+    --line: 1px solid rgba(0, 0, 0, .1);
+    --line-strong: 1px solid rgba(0, 0, 0, .16);
+    --shadow-soft:
+      rgba(0, 0, 0, .04) 0 4px 18px,
+      rgba(0, 0, 0, .027) 0 2px 8px,
+      rgba(0, 0, 0, .02) 0 .8px 3px;
+    --shadow-lift:
+      rgba(0, 0, 0, .05) 0 8px 28px,
+      rgba(0, 0, 0, .035) 0 3px 10px,
+      rgba(0, 0, 0, .025) 0 1px 4px;
+
+    --r-card: 8px;
+    --r-sm: 6px;
+    --r-pill: 9999px;
+    --font: Inter, -apple-system, "PingFang SC", sans-serif;
+
+    /* 兼容 tokens.css 变量（部分复用类需要） */
+    --bmp-radius-sm: 6px;
+    --bmp-radius-md: 8px;
+    --bmp-color-primary: #C8161D;
+    --bmp-color-primary-light: #FBECEC;
+    --bmp-color-primary-dark: #A51218;
+    --bmp-color-danger: #C8161D;
+    --bmp-color-danger-light: #FBECEC;
+    --bmp-color-dingtalk: #1677FF;
+    --bmp-color-wecom: #07C160;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-warm); }
+
+  .login-wrap { display: flex; min-height: 100vh; }
+
+  /* ============================================================
+     左：品牌陈述区（暖白/浅暖灰底 + 文字陈述，不再用红渐变铺底）
+     ============================================================ */
+  .brand-side {
+    flex: 0 0 52%;
+    background: var(--surface);
+    border-right: var(--line);
+    color: var(--text-primary);
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 56px 64px;
+    position: relative; overflow: hidden;
+  }
+  /* 极克制的暖色光斑（低透明度，非大色块） */
+  .brand-side::after {
+    content: ""; position: absolute; right: -140px; bottom: -160px;
+    width: 420px; height: 420px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,22,29,.05), rgba(200,22,29,0) 70%);
+    pointer-events: none;
+  }
+  .brand-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; position: relative; }
+  .brand-logo .mark {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    box-shadow: rgba(0,0,0,.04) 0 2px 8px;
+  }
+  .brand-logo .name { font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
+
+  .brand-slogan {
+    font-size: 48px; font-weight: 700; line-height: 1.04;
+    letter-spacing: -1.5px; margin-bottom: 18px; position: relative;
+  }
+  .brand-slogan .hl { color: var(--accent); }
+  .brand-sub {
+    font-size: 16px; font-weight: 400; line-height: 1.5;
+    color: var(--text-secondary); max-width: 440px; position: relative;
+  }
+  .brand-feats { display: flex; gap: 44px; margin-top: 48px; position: relative; }
+  .brand-feats .f b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.5px; color: var(--text-primary); margin-bottom: 2px; }
+  .brand-feats .f span { font-size: 12px; font-weight: 600; letter-spacing: .125px; color: var(--text-weak); }
+
+  /* --------- 登录页公司要闻（未登录即可见；无公告时不占位） --------- */
+  .login-notice {
+    margin-top: 40px; max-width: 460px; position: relative;
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px 14px 18px;
+    background: #fff; border: var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+  }
+  .login-notice::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent-warm);
+  }
+  .login-notice .ln-ic { font-size: 16px; line-height: 1.3; flex: none; }
+  .login-notice .ln-body { min-width: 0; }
+  .login-notice .ln-label {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: var(--accent); margin-bottom: 4px;
+  }
+  .login-notice .ln-title { font-size: 15px; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
+  .login-notice .ln-meta { margin-top: 5px; font-size: 12px; font-weight: 500; color: var(--text-weak); }
+  .login-notice .ln-go { margin-left: auto; flex: none; align-self: center; font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .login-notice .ln-go:hover { color: var(--accent-warm); }
+
+  /* ============================================================
+     右：登录卡
+     ============================================================ */
+  .form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 24px; }
+  .login-card { width: 100%; max-width: 400px; }
+  .login-title { font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; color: var(--text-primary); margin: 0 0 6px; }
+  .login-sub { font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--text-secondary); margin-bottom: 24px; }
+
+  /* Tabs（扫码在前 · 默认激活，呼应"钉钉扫码为主推"） */
+  .login-tabs { display: flex; gap: 24px; border-bottom: var(--line); margin-bottom: 22px; }
+  .login-tabs .lt {
+    padding: 10px 2px; cursor: pointer; color: var(--text-secondary);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    font-size: 15px; font-weight: 500; letter-spacing: -.1px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color .15s, border-color .15s;
+  }
+  .login-tabs .lt:hover { color: var(--text-primary); }
+  .login-tabs .lt.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+  .login-tabs .lt .reco {
+    font-size: 11px; font-weight: 700; letter-spacing: .125px;
+    color: #fff; background: var(--accent);
+    padding: 1px 7px; border-radius: var(--r-pill);
+  }
+
+  /* 字段 */
+  .field { margin-bottom: 15px; }
+  .field > label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .input {
+    width: 100%; height: 42px; padding: 0 13px;
+    border: var(--line-strong); border-radius: var(--r-card);
+    font-size: 15px; color: var(--text-primary); background: #fff;
+    outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .input::placeholder { color: var(--text-weak); }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,22,29,.08); }
+  .field.has-error .input { border-color: var(--accent); }
+  .field .err-msg { display: none; margin-top: 5px; font-size: 12px; color: var(--accent); }
+  .field.has-error .err-msg { display: block; }
+
+  .captcha-row { display: flex; gap: 10px; }
+  .captcha-img {
+    width: 108px; height: 42px; flex-shrink: 0;
+    border: var(--line-strong); border-radius: var(--r-card);
+    background: repeating-linear-gradient(45deg, #f6f5f4, #f6f5f4 6px, #efedea 6px, #efedea 12px);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 17px; letter-spacing: 5px;
+    color: var(--text-primary); cursor: pointer; user-select: none;
+  }
+  .captcha-img:hover { border-color: rgba(0,0,0,.22); }
+
+  .remember-row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 18px; font-size: 13px; }
+  .remember-row label { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; }
+  .remember-row a { font-size: 13px; font-weight: 500; }
+
+  /* 登录按钮：麓邦红（唯一大块强调） */
+  .btn-login {
+    width: 100%; height: 46px; border: none; border-radius: var(--r-card);
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 600; letter-spacing: .2px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .15s, transform .12s;
+  }
+  .btn-login:hover { background: var(--accent-warm); }
+  .btn-login:active { transform: scale(.99); }
+  .btn-login:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-login.loading::before {
+    content: ""; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tip { margin-top: 12px; font-size: 12px; color: var(--text-weak); text-align: center; line-height: 1.6; }
+
+  /* --------- 扫码面板（主推：更大更醒目） --------- */
+  .qr-panel { text-align: center; padding: 4px 0 12px; }
+  .qr-hint-top {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: var(--accent); background: rgba(200,22,29,.07);
+    padding: 4px 12px; border-radius: var(--r-pill); margin-bottom: 14px;
+  }
+  .qr-box {
+    width: 208px; height: 208px; margin: 0 auto 14px;
+    border: var(--line); border-radius: var(--r-card);
+    display: flex; align-items: center; justify-content: center; position: relative;
+    background:
+      repeating-linear-gradient(0deg, #31302e 0 8px, transparent 8px 16px),
+      repeating-linear-gradient(90deg, #31302e 0 8px, #fff 8px 16px);
+    opacity: .9;
+    box-shadow: var(--shadow-soft);
+  }
+  .qr-box .logo-center {
+    position: absolute; width: 42px; height: 42px; background: var(--accent);
+    border-radius: 9px; color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 18px; border: 3px solid #fff;
+  }
+  .qr-tip { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .qr-sub { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  .qr-switch { margin-top: 16px; display: flex; justify-content: center; gap: 10px; font-size: 13px; }
+  .qr-switch span {
+    cursor: pointer; color: var(--text-secondary);
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: var(--r-pill);
+    border: var(--line); background: #fff;
+    transition: all .15s;
+  }
+  .qr-switch span:hover { border-color: rgba(0,0,0,.2); color: var(--text-primary); }
+  .qr-switch span.on { background: rgba(200,22,29,.07); border-color: rgba(200,22,29,.28); color: var(--accent); font-weight: 700; }
+  .qr-switch span i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .qr-sim {
+    margin-top: 16px; height: 38px; padding: 0 16px;
+    background: var(--surface); border: var(--line); border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    transition: background .15s;
+  }
+  .qr-sim:hover { background: #fff; border-color: rgba(0,0,0,.2); }
+
+  /* --------- 第三方 OAuth --------- */
+  .third-area { margin-top: 22px; }
+  .third-divider { display: flex; align-items: center; gap: 12px; color: var(--text-weak); font-size: 12px; font-weight: 500; margin-bottom: 16px; }
+  .third-divider::before, .third-divider::after { content: ""; flex: 1; height: 1px; background: rgba(0,0,0,.1); }
+  .third-btns { display: flex; gap: 12px; }
+  .third-btn {
+    flex: 1; height: 42px; border-radius: var(--r-card);
+    border: var(--line-strong);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer; background: #fff; font-size: 14px; font-weight: 500; color: var(--text-primary);
+    transition: all .15s;
+  }
+  .third-btn:hover { background: var(--surface); border-color: rgba(0,0,0,.22); }
+  .third-btn .ic { width: 20px; height: 20px; border-radius: 5px; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .third-btn.dt .ic { background: var(--bmp-color-dingtalk); }
+  .third-btn.wc .ic { background: var(--bmp-color-wecom); }
+
+  /* --------- 锁定提示（语义红保留，注意：红色仍是警示色） --------- */
+  .lock-alert {
+    display: none; padding: 11px 14px; margin-bottom: 16px;
+    background: rgba(200,22,29,.06); border: 1px solid rgba(200,22,29,.24);
+    border-radius: var(--r-card); color: var(--accent); font-size: 13px; line-height: 1.65;
+  }
+  .lock-alert b { font-weight: 700; }
+  .lock-alert .fs-12 { font-size: 12px; color: var(--text-secondary); }
+
+  /* --------- 演示提示 --------- */
+  .demo-hint {
+    position: fixed; left: 16px; bottom: 16px; z-index: 10;
+    background: rgba(49,48,46,.92); color: #f6f5f4;
+    padding: 9px 14px; border-radius: 10px; font-size: 12px; line-height: 1.9;
+    box-shadow: var(--shadow-lift);
+  }
+  .demo-hint code { background: rgba(255,255,255,.18); padding: 0 5px; border-radius: 4px; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 900px) {
+    .brand-side { display: none; }
+    .form-side { padding: 24px; }
+  }
+</style>
+<script src="assets/ui-style.js"></script>
+</head>
+<body>
+<div class="login-wrap">
+  <!-- 左：品牌陈述区（暖白底 + 文字品牌陈述，替代原红渐变） -->
+  <div class="brand-side">
+    <div class="brand-logo"><span class="mark">麓</span><span class="name">麓邦业务中台</span></div>
+    <div class="brand-slogan">一个账号，<span class="hl">一次登录</span><br>畅行全系统</div>
+    <div class="brand-sub">统一入口 / 统一待办 / 统一消息 / 统一身份，让每一次协作都从同一个起点开始。</div>
+    <div class="brand-feats">
+      <div class="f"><b>8+</b><span>接入业务系统</span></div>
+      <div class="f"><b>1 次</b><span>登录全网通行</span></div>
+      <div class="f"><b>512</b><span>名员工在用</span></div>
+    </div>
+
+    <!-- 登录页公司要闻（未登录可见；无公告时不占位，由 JS 控制） -->
+    <div class="login-notice" id="loginNotice"></div>
+  </div>
+
+  <!-- 右：登录卡 -->
+  <div class="form-side">
+    <div class="login-card">
+      <div class="login-title">欢迎登录</div>
+      <div class="login-sub">推荐使用钉钉 / 企业微信扫码，免输密码一步进入</div>
+
+      <div class="login-tabs">
+        <div class="lt active" id="tab-qr" onclick="switchTab('qr')">扫码登录 <span class="reco">推荐</span></div>
+        <div class="lt" id="tab-pwd" onclick="switchTab('pwd')">密码登录</div>
+      </div>
+
+      <div class="lock-alert" id="lockAlert">
+        账号已锁定：密码连续错误 5 次，请 <b id="lockCountdown">30:00</b> 后重试，或联系管理员（内线 8000）解锁。<br>
+        <span class="fs-12">错误码 4230 · 本次锁定已写入审计日志</span>
+      </div>
+
+      <!-- 密码登录面板 -->
+      <div id="panel-pwd" class="hidden">
+        <div class="field" id="f-user">
+          <label>账号</label>
+          <input class="input" id="username" placeholder="用户名 / 工号 / 手机号" autocomplete="username" value="zhangsan">
+          <div class="err-msg">请输入账号</div>
+        </div>
+        <div class="field" id="f-pwd">
+          <label>密码</label>
+          <input class="input" id="password" type="password" placeholder="请输入密码" autocomplete="current-password" value="******">
+          <div class="err-msg">请输入密码</div>
+        </div>
+        <!-- 失败 3 次后出现（B1-F05 策略） -->
+        <div class="field hidden" id="f-captcha">
+          <label>图片验证码</label>
+          <div class="captcha-row">
+            <input class="input" placeholder="请输入右侧验证码" maxlength="4">
+            <div class="captcha-img" title="点击刷新" onclick="msg('info','验证码已刷新（模拟）')">8K2D</div>
+          </div>
+          <div class="err-msg">验证码错误</div>
+        </div>
+        <div class="remember-row">
+          <label><input type="checkbox" id="remember" checked> 记住账号<span class="text-secondary fs-12">（仅记忆用户名，不保存密码）</span></label>
+          <a href="login-forgot.html">忘记密码？</a>
+        </div>
+        <button class="btn-login" id="btnLogin" onclick="doLogin()">登 录</button>
+        <div class="tip">登录即代表同意《平台使用规范》 · 全部登录行为将被审计</div>
+      </div>
+
+      <!-- 扫码登录面板（默认展开 · 钉钉为主推） -->
+      <div id="panel-qr">
+        <div class="qr-panel">
+          <span class="qr-hint-top">✦ 推荐 · 免输密码</span>
+          <div class="qr-box"><span class="logo-center">麓</span></div>
+          <div class="qr-tip" id="qrTip">请使用 <b style="color:var(--bmp-color-dingtalk)">钉钉</b> 扫描二维码登录</div>
+          <div class="qr-sub" id="qrSub">打开钉钉 → 扫一扫 → 确认登录（免输密码）</div>
+          <div class="qr-switch">
+            <span class="on" id="sw-dt" onclick="switchQr('dt')"><i style="background:var(--bmp-color-dingtalk)"></i>钉钉</span>
+            <span id="sw-wc" onclick="switchQr('wc')"><i style="background:var(--bmp-color-wecom)"></i>企业微信</span>
+          </div>
+          <div><button class="qr-sim" onclick="simulateScan()">模拟：扫码成功 →</button></div>
+        </div>
+      </div>
+
+      <!-- 第三方 OAuth（连接器配置驱动，未启用渠道不渲染） -->
+      <div class="third-area hidden" id="thirdArea">
+        <div class="third-divider">或使用第三方账号登录</div>
+        <div class="third-btns">
+          <div class="third-btn dt" onclick="msg('info','302 跳转钉钉 OAuth 授权页（模拟）');setTimeout(()=>location.href='home-v2.html',900)"><span class="ic">钉</span>钉钉登录</div>
+          <div class="third-btn wc" onclick="msg('info','302 跳转企业微信 OAuth 授权页（模拟）');setTimeout(()=>location.href='home-v2.html',900)"><span class="ic">企</span>企业微信登录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="demo-hint">
+  原型演示提示：密码框输入 <code>wrong</code> 可体验失败计数（3 次出验证码 → 5 次锁定）；<br>
+  MFA 演示：账号输入 <code>mfa</code> 登录后进入二次验证页。
+</div>
+
+<script src="assets/mock.js"></script>
+<script>
+/* ============================================================
+   登录页逻辑（功能完全保留）
+   - 扫码为主推：默认落在「扫码登录」Tab（SwitchTab 初始态即 qr）
+   - 失败计数 3 次出图片验证码 / 5 次锁定 30 分钟（含倒计时、错误码 4230）
+   - MFA 分支（账号 mfa → login-mfa.html）/ redirect 回跳
+   ============================================================ */
+let failCount = 0, locked = false, countdownTimer = null;
+
+function switchTab(t) {
+  document.getElementById("tab-qr").classList.toggle("active", t === "qr");
+  document.getElementById("tab-pwd").classList.toggle("active", t === "pwd");
+  document.getElementById("panel-qr").classList.toggle("hidden", t !== "qr");
+  document.getElementById("panel-pwd").classList.toggle("hidden", t !== "pwd");
+  document.getElementById("thirdArea").classList.toggle("hidden", t !== "pwd");
+}
+function switchQr(c) {
+  document.getElementById("sw-dt").classList.toggle("on", c === "dt");
+  document.getElementById("sw-wc").classList.toggle("on", c === "wc");
+  document.getElementById("qrTip").innerHTML = c === "dt"
+    ? '请使用 <b style="color:var(--bmp-color-dingtalk)">钉钉</b> 扫描二维码登录'
+    : '请使用 <b style="color:var(--bmp-color-wecom)">企业微信</b> 扫描二维码登录';
+  document.getElementById("qrSub").textContent = c === "dt"
+    ? "打开钉钉 → 扫一扫 → 确认登录（免输密码）"
+    : "打开企业微信 → 扫一扫 → 确认登录（免输密码）";
+}
+function simulateScan() {
+  document.getElementById("qrTip").textContent = "✅ 已扫码，请在手机上确认";
+  document.getElementById("qrSub").textContent = "确认后将自动进入工作台";
+  setTimeout(() => location.href = "home-v2.html", 1200);
+}
+
+function doLogin() {
+  if (locked) { msg("error", "账号锁定中，请稍后重试"); return; }
+  const u = document.getElementById("username"), p = document.getElementById("password");
+  let ok = true;
+  document.getElementById("f-user").classList.toggle("has-error", !u.value.trim()); if (!u.value.trim()) ok = false;
+  document.getElementById("f-pwd").classList.toggle("has-error", !p.value); if (!p.value) ok = false;
+  if (!ok) return;
+
+  const btn = document.getElementById("btnLogin");
+  btn.classList.add("loading"); btn.disabled = true; btn.textContent = "登录中…";
+
+  setTimeout(() => {
+    btn.classList.remove("loading"); btn.disabled = false; btn.textContent = "登 录";
+    if (p.value === "wrong") {
+      failCount++;
+      if (failCount >= 5) { doLock(); return; }
+      if (failCount >= 3) document.getElementById("f-captcha").classList.remove("hidden");
+      document.getElementById("f-pwd").classList.add("has-error");
+      document.querySelector("#f-pwd .err-msg").textContent = `密码错误（第 ${failCount} 次）${failCount >= 3 ? "，连续错误 5 次将锁定账号 30 分钟" : ""}`;
+      msg("error", "账号或密码错误");
+      return;
+    }
+    // MFA 演示分支（B1-F04，默认关闭）
+    if (u.value.trim() === "mfa") { location.href = "login-mfa.html"; return; }
+    // redirect 回跳演示
+    const q = new URLSearchParams(location.search).get("redirect");
+    location.href = q || "home-v2.html";
+  }, 700);
+}
+
+function doLock() {
+  locked = true;
+  document.getElementById("lockAlert").style.display = "block";
+  document.getElementById("panel-pwd").querySelectorAll(".input").forEach(i => i.disabled = true);
+  document.getElementById("btnLogin").disabled = true;
+  let sec = 1800;
+  countdownTimer = setInterval(() => {
+    sec--;
+    const m = String(Math.floor(sec / 60)).padStart(2, "0"), s = String(sec % 60).padStart(2, "0");
+    document.getElementById("lockCountdown").textContent = `${m}:${s}`;
+    if (sec <= 0) { clearInterval(countdownTimer); location.reload(); }
+  }, 1000);
+}
+
+/* Enter 提交（密码框） */
+document.getElementById("password").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+/* 账号框 Enter 也提交，体验更顺 */
+document.getElementById("username").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+/* ============================================================
+   登录页公司要闻（取 MOCK.notices 置顶公告；未登录可见）
+   —— 硬要求：无公告时「完全不占位」（移除节点，不留空卡）
+   ============================================================ */
+(function renderLoginNotice() {
+  const box = document.getElementById("loginNotice");
+  if (!box) return;
+  const notices = (window.MOCK && Array.isArray(MOCK.notices)) ? MOCK.notices : [];
+  if (!notices.length) { box.remove(); return; }           // 无公告 → 不占位
+  const top = notices.filter(n => n.top);
+  const n = top[0] || notices[0];                          // 优先置顶公告，否则取最新
+  if (!n) { box.remove(); return; }
+  box.innerHTML =
+    '<span class="ln-ic">📢</span>' +
+    '<div class="ln-body">' +
+      '<div class="ln-label">公司要闻' + (n.top ? ' · 置顶' : '') + '</div>' +
+      '<div class="ln-title">' + escHtml(n.title) + '</div>' +
+      '<div class="ln-meta">' + escHtml(n.dept || '') + (n.dept && n.time ? ' · ' : '') + escHtml(n.time || '') + '</div>' +
+    '</div>' +
+    '<a class="ln-go" href="javascript:void(0)" onclick="msg(\'info\',\'未登录仅预览标题，登录后可查看公告全文\')">查看详情 →</a>';
+})();
+
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>
